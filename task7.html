@@ -1,0 +1,835 @@
+Task7 pcb · HTML
+Copy
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Process Control Block (PCB) — OS Concept</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: #0f1318;
+    --border: #1e2a3a;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #a855f7;
+    --green: #39ff14;
+    --text: #c8d8e8;
+    --dim: #4a6080;
+    --card: #111822;
+  }
+ 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+ 
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    position: relative;
+    z-index: 1;
+  }
+ 
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  .tag {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    animation: pulse-border 2s infinite;
+  }
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,255,0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(0,229,255,0); }
+  }
+  h1 {
+    font-size: clamp(32px, 6vw, 64px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, var(--accent3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--dim);
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+ 
+  /* Section title */
+  .section-title {
+    font-size: 11px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+ 
+  /* Theory box */
+  .theory {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 28px 32px;
+    border-radius: 4px;
+    margin-bottom: 48px;
+    line-height: 1.8;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .theory p + p { margin-top: 14px; }
+  .theory strong { color: var(--accent); font-weight: 700; }
+  .theory em { color: var(--accent2); font-style: normal; font-weight: 700; }
+ 
+  /* PCB Visual */
+  .pcb-visual {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 48px;
+    align-items: start;
+  }
+  @media (max-width: 700px) {
+    .pcb-visual { grid-template-columns: 1fr; }
+  }
+ 
+  .pcb-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .pcb-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 24px rgba(0,229,255,0.07);
+  }
+  .pcb-header {
+    background: linear-gradient(90deg, #0d1825, #0a1520);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pcb-header-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .pcb-header-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  .pcb-fields {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pcb-field {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid #161f2c;
+    transition: background 0.2s;
+    cursor: default;
+    border-radius: 2px;
+  }
+  .pcb-field:hover { background: rgba(0,229,255,0.04); }
+  .pcb-field-key {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    padding: 8px 12px 8px 0;
+    width: 160px;
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+  }
+  .pcb-field-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    padding: 8px 0;
+    flex: 1;
+  }
+  .pcb-field-val.accent { color: var(--accent); }
+  .pcb-field-val.orange { color: var(--accent2); }
+  .pcb-field-val.purple { color: var(--accent3); }
+ 
+  /* Explanation cards */
+  .fields-explain {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .field-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    transition: border-color 0.25s, transform 0.25s;
+    cursor: default;
+  }
+  .field-card:hover {
+    border-color: var(--accent3);
+    transform: translateY(-3px);
+  }
+  .field-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+  .field-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .field-desc {
+    font-size: 13px;
+    color: #8ea0b8;
+    line-height: 1.6;
+  }
+ 
+  /* Simulator */
+  .simulator {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+  .sim-header {
+    background: #0d1825;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .sim-title {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .sim-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 8px 18px;
+    border: 1px solid;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn-create {
+    border-color: var(--green);
+    color: var(--green);
+    background: transparent;
+  }
+  .btn-create:hover { background: rgba(57,255,20,0.1); }
+  .btn-terminate {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: transparent;
+  }
+  .btn-terminate:hover { background: rgba(255,107,53,0.1); }
+  .btn-context {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    background: transparent;
+  }
+  .btn-context:hover { background: rgba(168,85,247,0.1); }
+  .btn-clear {
+    border-color: var(--dim);
+    color: var(--dim);
+    background: transparent;
+  }
+  .btn-clear:hover { border-color: var(--text); color: var(--text); }
+ 
+  .sim-body {
+    padding: 24px;
+  }
+ 
+  /* Process table */
+  .process-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+  thead tr {
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--dim);
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+  tbody tr {
+    border-bottom: 1px solid #111a24;
+    transition: background 0.15s;
+    animation: fadeIn 0.4s ease;
+  }
+  tbody tr:hover { background: rgba(0,229,255,0.03); }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  td {
+    padding: 10px 12px;
+    color: var(--text);
+  }
+  .state-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+  .state-running  { background: rgba(57,255,20,0.12);  color: var(--green);   border: 1px solid rgba(57,255,20,0.3); }
+  .state-ready    { background: rgba(0,229,255,0.10);  color: var(--accent);  border: 1px solid rgba(0,229,255,0.3); }
+  .state-waiting  { background: rgba(255,107,53,0.10); color: var(--accent2); border: 1px solid rgba(255,107,53,0.3); }
+  .state-terminated { background: rgba(74,96,128,0.15); color: var(--dim);   border: 1px solid rgba(74,96,128,0.3); }
+ 
+  .log {
+    background: #080c12;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    height: 120px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+  .log-line { animation: fadeIn 0.3s ease; }
+  .log-line.green { color: var(--green); }
+  .log-line.orange { color: var(--accent2); }
+  .log-line.purple { color: var(--accent3); }
+  .log-line.cyan { color: var(--accent); }
+ 
+  /* CPU animation */
+  .cpu-view {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .cpu-box {
+    background: #080c12;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 24px;
+    text-align: center;
+    min-width: 160px;
+    transition: border-color 0.3s;
+  }
+  .cpu-box.active { border-color: var(--green); box-shadow: 0 0 20px rgba(57,255,20,0.1); }
+  .cpu-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .cpu-pid {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--green);
+    letter-spacing: -1px;
+    min-height: 36px;
+    transition: color 0.3s;
+  }
+  .cpu-pid.empty { color: var(--dim); font-size: 14px; font-weight: 400; }
+  .arrow {
+    font-size: 24px;
+    color: var(--accent3);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+ 
+  /* Context switch animation */
+  .ctx-anim {
+    display: none;
+    background: rgba(168,85,247,0.08);
+    border: 1px solid var(--accent3);
+    border-radius: 4px;
+    padding: 12px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent3);
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+  .ctx-anim.show { display: block; animation: fadeIn 0.3s ease; }
+ 
+  /* How it works */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 48px;
+    position: relative;
+  }
+  .steps::before {
+    content: '';
+    position: absolute;
+    left: 22px;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent3), transparent);
+  }
+  .step {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    align-items: flex-start;
+    position: relative;
+  }
+  .step-num {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .step-content { flex: 1; padding-top: 8px; }
+  .step-title { font-weight: 700; color: #fff; margin-bottom: 6px; font-size: 15px; }
+  .step-desc { font-size: 13px; color: #8ea0b8; line-height: 1.7; }
+ 
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 32px 0 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    border-top: 1px solid var(--border);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+ 
+  <!-- Header -->
+  <header>
+    <div class="tag">Topic 7 — OS Concepts</div>
+    <h1>Process Control Block</h1>
+    <p class="subtitle">// The kernel's complete record of every process in the system</p>
+  </header>
+ 
+  <!-- Theory -->
+  <div class="section-title">01 — What Is a PCB?</div>
+  <div class="theory">
+    <p>
+      When an operating system creates a process, it must keep track of <strong>everything</strong> about that process — its current state, where it is in memory, which files it has open, and exactly what it was doing before the CPU was handed to another process. All this information is stored in a data structure called the <em>Process Control Block (PCB)</em>.
+    </p>
+    <p>
+      The PCB is sometimes called a <strong>Task Control Block (TCB)</strong> or <strong>process descriptor</strong>. In the Linux kernel, it is implemented as the <code style="color:var(--green);font-family:'Share Tech Mono',monospace">task_struct</code> structure. There is <strong>one PCB per process</strong>, and the OS maintains a table of all PCBs (the <em>process table</em>).
+    </p>
+    <p>
+      The PCB is the key mechanism that makes <strong>context switching</strong> possible: when the CPU switches from one process to another, the OS saves the current process's state into its PCB, then loads the next process's state from its PCB — so execution can resume exactly where it left off.
+    </p>
+  </div>
+ 
+  <!-- PCB Structure Visual -->
+  <div class="section-title">02 — Structure of a PCB</div>
+  <div class="pcb-visual">
+    <div class="pcb-card">
+      <div class="pcb-header">
+        <div class="pcb-header-dot" style="background:var(--green)"></div>
+        <div class="pcb-header-title">PCB — Process #1042</div>
+      </div>
+      <div class="pcb-fields">
+        <div class="pcb-field"><div class="pcb-field-key">Process ID (PID)</div><div class="pcb-field-val accent">1042</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Parent PID (PPID)</div><div class="pcb-field-val accent">998</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Process State</div><div class="pcb-field-val">RUNNING</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Program Counter</div><div class="pcb-field-val orange">0x00403F2A</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">CPU Registers</div><div class="pcb-field-val orange">AX=0x04, BX=0x00...</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Priority</div><div class="pcb-field-val">HIGH (10)</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">CPU Time Used</div><div class="pcb-field-val">342 ms</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Memory Base Addr</div><div class="pcb-field-val purple">0x20000000</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Memory Limit</div><div class="pcb-field-val purple">4 MB</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Page Table Ptr</div><div class="pcb-field-val purple">0x30A00050</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Open Files</div><div class="pcb-field-val">stdin, stdout, log.txt</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">I/O Devices</div><div class="pcb-field-val">keyboard, /dev/sda1</div></div>
+        <div class="pcb-field"><div class="pcb-field-key">Accounting Info</div><div class="pcb-field-val dim" style="color:#5a7090">CPU quota, wall-clock</div></div>
+      </div>
+    </div>
+ 
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:20px;font-size:13px;color:#8ea0b8;line-height:1.75;">
+        <div style="color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;margin-bottom:12px;">WHY IT MATTERS</div>
+        The PCB is the <span style="color:#fff;font-weight:700;">identity card</span> of a process. Without it, the OS would have no way to resume a process after switching away, no way to enforce memory boundaries, and no way to manage file access or priorities.
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid var(--accent3);border-radius:6px;padding:20px;font-size:13px;color:#8ea0b8;line-height:1.75;">
+        <div style="color:var(--accent3);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;margin-bottom:10px;">IN LINUX KERNEL</div>
+        Linux stores PCB data in <code style="color:var(--green);font-family:'Share Tech Mono',monospace">struct task_struct</code>, defined in <code style="color:var(--green);font-family:'Share Tech Mono',monospace">&lt;linux/sched.h&gt;</code>. It contains over 100 fields. Each process in the system has exactly one of these.
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:20px;font-size:13px;color:#8ea0b8;line-height:1.75;">
+        <div style="color:var(--accent2);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;margin-bottom:10px;">STORED IN KERNEL SPACE</div>
+        The PCB lives in <span style="color:#fff">kernel memory</span>, not user memory. Processes cannot directly access or modify their own PCB — only the OS kernel can.
+      </div>
+    </div>
+  </div>
+ 
+  <!-- Field Explanations -->
+  <div class="section-title">03 — Key PCB Fields Explained</div>
+  <div class="fields-explain">
+    <div class="field-card">
+      <div class="field-icon">🔢</div>
+      <div class="field-name">Process ID (PID)</div>
+      <div class="field-desc">A unique integer that identifies the process. Assigned by the OS on creation. The parent's PID is stored as PPID.</div>
+    </div>
+    <div class="field-card">
+      <div class="field-icon">🔄</div>
+      <div class="field-name">Process State</div>
+      <div class="field-desc">Current state: New, Ready, Running, Waiting, or Terminated. The OS uses this to manage scheduling decisions.</div>
+    </div>
+    <div class="field-card">
+      <div class="field-icon">📍</div>
+      <div class="field-name">Program Counter (PC)</div>
+      <div class="field-desc">Address of the next instruction to execute. Saved here during context switches so the process can resume correctly.</div>
+    </div>
+    <div class="field-card">
+      <div class="field-icon">🧮</div>
+      <div class="field-name">CPU Registers</div>
+      <div class="field-desc">Snapshot of all CPU registers (AX, BX, SP, etc.) at the time the process was last paused. Restored on resume.</div>
+    </div>
+    <div class="field-card">
+      <div class="field-icon">📊</div>
+      <div class="field-name">Scheduling Info</div>
+      <div class="field-desc">Priority level, scheduling queue pointers, CPU time used, and time remaining in its current time quantum.</div>
+    </div>
+    <div class="field-card">
+      <div class="field-icon">🗺️</div>
+      <div class="field-name">Memory Management</div>
+      <div class="field-desc">Base address, limit registers, and pointer to the page table. Defines the process's virtual address space.</div>
+    </div>
+    <div class="field-card">
+      <div class="field-icon">📂</div>
+      <div class="field-name">I/O & File Info</div>
+      <div class="field-desc">List of open file descriptors, I/O devices allocated to this process, and pending I/O requests.</div>
+    </div>
+    <div class="field-card">
+      <div class="field-icon">📈</div>
+      <div class="field-name">Accounting Info</div>
+      <div class="field-desc">CPU time consumed, real (wall-clock) time elapsed, and usage limits. Used for billing and resource enforcement.</div>
+    </div>
+  </div>
+ 
+  <!-- How context switching works -->
+  <div class="section-title">04 — How Context Switching Uses the PCB</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-content">
+        <div class="step-title">Interrupt or System Call Occurs</div>
+        <div class="step-desc">The CPU receives a timer interrupt (or the running process makes a blocking system call), triggering the OS scheduler.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-content">
+        <div class="step-title">Save Current Process State → PCB<sub>A</sub></div>
+        <div class="step-desc">The OS saves the Program Counter, all CPU register values, and the process state into Process A's PCB. Process A is moved from Running → Ready (or Waiting).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-content">
+        <div class="step-title">Scheduler Selects Next Process</div>
+        <div class="step-desc">The OS scheduler picks Process B from the Ready Queue based on the scheduling algorithm (FCFS, SJF, Priority, etc.).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-content">
+        <div class="step-title">Restore Process State from PCB<sub>B</sub></div>
+        <div class="step-desc">The OS loads Process B's saved Program Counter and register values from its PCB back into the CPU. Process B's state becomes Running.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">05</div>
+      <div class="step-content">
+        <div class="step-title">Process B Resumes Execution</div>
+        <div class="step-desc">The CPU picks up exactly where Process B left off. From B's perspective, nothing happened — it just continued running.</div>
+      </div>
+    </div>
+  </div>
+ 
+  <!-- Interactive Simulator -->
+  <div class="section-title">05 — Live PCB Simulator</div>
+  <div class="simulator">
+    <div class="sim-header">
+      <div class="sim-title">// PROCESS TABLE SIMULATOR</div>
+      <div class="sim-controls">
+        <button class="btn btn-create" onclick="createProcess()">+ New Process</button>
+        <button class="btn btn-context" onclick="contextSwitch()">↔ Context Switch</button>
+        <button class="btn btn-terminate" onclick="terminateProcess()">✕ Terminate Running</button>
+        <button class="btn btn-clear" onclick="clearAll()">Clear All</button>
+      </div>
+    </div>
+    <div class="sim-body">
+ 
+      <div class="cpu-view">
+        <div class="cpu-box" id="cpuBox">
+          <div class="cpu-label">CPU — RUNNING</div>
+          <div class="cpu-pid empty" id="cpuPid">— idle —</div>
+        </div>
+        <div class="arrow">⇄</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);line-height:2;">
+          <div>PCB saves: <span style="color:var(--accent3)" id="saveInfo">—</span></div>
+          <div>PCB loads: <span style="color:var(--green)" id="loadInfo">—</span></div>
+        </div>
+      </div>
+ 
+      <div class="ctx-anim" id="ctxAnim"></div>
+ 
+      <div class="process-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>PID</th>
+              <th>Name</th>
+              <th>State</th>
+              <th>Priority</th>
+              <th>PC (addr)</th>
+              <th>Mem Base</th>
+              <th>CPU Time</th>
+              <th>Open Files</th>
+            </tr>
+          </thead>
+          <tbody id="processTable">
+            <tr><td colspan="8" style="text-align:center;color:var(--dim);padding:24px;font-family:'Share Tech Mono',monospace;font-size:11px;">// No processes. Click "+ New Process" to begin.</td></tr>
+          </tbody>
+        </table>
+      </div>
+ 
+      <div class="log" id="logBox">
+        <div class="log-line cyan">// OS Kernel PCB Simulator ready. Awaiting process creation...</div>
+      </div>
+    </div>
+  </div>
+ 
+  <footer>PROCESS CONTROL BLOCK — OS INTERACTIVE WEB PORTFOLIO — TOPIC 07</footer>
+</div>
+ 
+<script>
+  const NAMES = ['chrome','firefox','bash','python3','nginx','node','vim','gcc','ssh','grep','cat','ls','cp','make','git'];
+  const PRIORITIES = ['LOW (1)','LOW (3)','NORMAL (5)','NORMAL (7)','HIGH (10)','HIGH (15)','RT (20)'];
+ 
+  let processes = [];
+  let nextPid = 1001;
+  let runningIdx = -1;
+ 
+  function rnd(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+  function hex(n){ return '0x'+n.toString(16).toUpperCase().padStart(8,'0'); }
+  function randomPC(){ return hex(rnd(0x00400000, 0x0050FFFF)); }
+  function randomMem(){ return hex(rnd(0x10000000, 0x70000000)); }
+ 
+  function log(msg, cls=''){
+    const box = document.getElementById('logBox');
+    const d = document.createElement('div');
+    d.className = 'log-line ' + cls;
+    const ts = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    d.textContent = `[${ts}] ${msg}`;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+ 
+  function stateClass(s){
+    if(s==='RUNNING') return 'state-running';
+    if(s==='READY') return 'state-ready';
+    if(s==='WAITING') return 'state-waiting';
+    return 'state-terminated';
+  }
+ 
+  function render(){
+    const tbody = document.getElementById('processTable');
+    if(processes.length===0){
+      tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:24px;font-family:\'Share Tech Mono\',monospace;font-size:11px;">// No processes. Click "+ New Process" to begin.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = processes.map(p=>`
+      <tr>
+        <td style="color:var(--accent);font-family:'Share Tech Mono',monospace">${p.pid}</td>
+        <td style="color:#fff">${p.name}</td>
+        <td><span class="state-badge ${stateClass(p.state)}">${p.state}</span></td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)">${p.priority}</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent2)">${p.pc}</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent3)">${p.mem}</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:11px">${p.cpuTime} ms</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)">${p.files}</td>
+      </tr>
+    `).join('');
+  }
+ 
+  function updateCPU(){
+    const pidEl = document.getElementById('cpuPid');
+    const box = document.getElementById('cpuBox');
+    if(runningIdx>=0 && runningIdx<processes.length){
+      const p = processes[runningIdx];
+      pidEl.textContent = `PID ${p.pid}`;
+      pidEl.className = 'cpu-pid';
+      box.classList.add('active');
+    } else {
+      pidEl.textContent = '— idle —';
+      pidEl.className = 'cpu-pid empty';
+      box.classList.remove('active');
+    }
+  }
+ 
+  function createProcess(){
+    const name = NAMES[rnd(0,NAMES.length-1)];
+    const p = {
+      pid: nextPid++,
+      name,
+      state: 'READY',
+      priority: PRIORITIES[rnd(0,PRIORITIES.length-1)],
+      pc: randomPC(),
+      mem: randomMem(),
+      cpuTime: 0,
+      files: ['stdin','stdout'][rnd(0,1)] + (rnd(0,1)?`, ${name}.log`:'')
+    };
+    processes.push(p);
+    log(`PCB CREATED → PID ${p.pid} (${p.name}) — state: READY, mem: ${p.mem}`, 'green');
+    // auto-assign CPU if idle
+    if(runningIdx===-1){
+      runningIdx = processes.length-1;
+      p.state='RUNNING';
+      log(`PID ${p.pid} loaded to CPU — PC: ${p.pc}`, 'cyan');
+    }
+    render(); updateCPU();
+  }
+ 
+  function contextSwitch(){
+    const ready = processes.filter((p,i)=>p.state==='READY'&&i!==runningIdx);
+    if(ready.length===0){ log('CONTEXT SWITCH: No READY processes available.', ''); return; }
+ 
+    const anim = document.getElementById('ctxAnim');
+    let prevPid = '—', nextPid2;
+ 
+    if(runningIdx>=0){
+      const curr = processes[runningIdx];
+      prevPid = curr.pid;
+      curr.pc = randomPC(); // update PC to simulate progress
+      curr.cpuTime += rnd(10,80);
+      curr.state = 'READY';
+      document.getElementById('saveInfo').textContent = `PC=${curr.pc}, regs saved → PCB[${curr.pid}]`;
+      log(`SAVE: PID ${curr.pid} → PC=${curr.pc}, registers saved into PCB`, 'purple');
+    }
+ 
+    // pick next ready process
+    const nextProc = ready[rnd(0, ready.length-1)];
+    const nextI = processes.indexOf(nextProc);
+    nextProc.state = 'RUNNING';
+    runningIdx = nextI;
+    document.getElementById('loadInfo').textContent = `PC=${nextProc.pc}, regs restored from PCB[${nextProc.pid}]`;
+    log(`LOAD: PID ${nextProc.pid} → PC=${nextProc.pc}, registers restored from PCB`, 'cyan');
+ 
+    anim.textContent = `⇄ Context Switch: CPU handed from PID ${prevPid} → PID ${nextProc.pid}`;
+    anim.classList.add('show');
+    setTimeout(()=>anim.classList.remove('show'), 2500);
+ 
+    render(); updateCPU();
+  }
+ 
+  function terminateProcess(){
+    if(runningIdx===-1){ log('No process is currently running.',''); return; }
+    const p = processes[runningIdx];
+    p.state = 'TERMINATED';
+    log(`TERMINATED: PID ${p.pid} (${p.name}) — PCB will be freed`, 'orange');
+    processes.splice(runningIdx,1);
+    runningIdx = -1;
+    // auto-pick next
+    const next = processes.findIndex(x=>x.state==='READY');
+    if(next>=0){ processes[next].state='RUNNING'; runningIdx=next; log(`PID ${processes[next].pid} promoted to CPU`,'cyan'); }
+    render(); updateCPU();
+  }
+ 
+  function clearAll(){
+    processes=[]; runningIdx=-1;
+    nextPid=1001;
+    document.getElementById('saveInfo').textContent='—';
+    document.getElementById('loadInfo').textContent='—';
+    log('All processes cleared. Process table reset.','');
+    render(); updateCPU();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preemptive vs Non-Preemptive Scheduling</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --paper: #faf7f2;
+    --ink: #1a1208;
+    --muted: #7a6e5f;
+    --border: #d8cfc0;
+    --pre-color: #c8451a;
+    --non-color: #1a6ec8;
+    --pre-light: #fff0eb;
+    --non-light: #ebf3ff;
+    --pre-mid: #f5c4b0;
+    --non-mid: #b0cff5;
+    --accent: #c8451a;
+    --gold: #b8922a;
+    --stamp: #8b3a1a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Subtle paper texture via repeating gradient */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 28px,
+      rgba(0,0,0,0.03) 28px,
+      rgba(0,0,0,0.03) 29px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 3rem 2rem 4rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: start;
+    border-bottom: 3px double var(--border);
+    padding-bottom: 2rem;
+    margin-bottom: 2.5rem;
+    animation: rise 0.7s ease both;
+  }
+
+  .header-left .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .header-left h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  .header-left h1 em {
+    font-style: italic;
+    color: var(--pre-color);
+  }
+
+  .header-left .subtitle {
+    margin-top: 0.75rem;
+    font-size: 0.92rem;
+    color: var(--muted);
+    font-weight: 300;
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  .stamp-box {
+    background: var(--pre-light);
+    border: 2px solid var(--stamp);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    transform: rotate(2deg);
+    min-width: 120px;
+  }
+  .stamp-box .s-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--stamp);
+    display: block;
+  }
+  .stamp-box .s-topic {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    color: var(--stamp);
+    line-height: 1;
+  }
+
+  /* SECTION LABELS */
+  .sec-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .sec-label::before {
+    content: '§';
+    color: var(--gold);
+  }
+
+  /* INTRO BOX */
+  .intro-box {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: #2d2416;
+    animation: rise 0.5s 0.1s ease both;
+  }
+
+  /* SPLIT COMPARISON */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    animation: rise 0.5s 0.2s ease both;
+  }
+
+  @media (max-width: 620px) { .split { grid-template-columns: 1fr; } }
+
+  .side {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid;
+  }
+  .side.pre  { border-color: var(--pre-mid); }
+  .side.non  { border-color: var(--non-mid); }
+
+  .side-header {
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid;
+  }
+  .side.pre .side-header { background: var(--pre-color); border-color: var(--pre-color); }
+  .side.non .side-header { background: var(--non-color); border-color: var(--non-color); }
+
+  .side-header .icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .side-header h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    color: #fff;
+    line-height: 1.2;
+  }
+  .side-header .tag {
+    margin-left: auto;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 20px;
+  }
+
+  .side-body {
+    padding: 1.25rem;
+    background: var(--paper);
+  }
+  .side.pre .side-body { background: var(--pre-light); }
+  .side.non .side-body { background: var(--non-light); }
+
+  .side-body p {
+    font-size: 0.88rem;
+    color: #2d2416;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+
+  .trait-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .trait-list li {
+    font-size: 0.83rem;
+    color: #2d2416;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    line-height: 1.5;
+  }
+  .trait-list li .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 0.45rem;
+    flex-shrink: 0;
+  }
+  .pre .dot  { background: var(--pre-color); }
+  .non .dot  { background: var(--non-color); }
+
+  /* SIMULATOR */
+  .sim-wrap {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+    animation: rise 0.5s 0.3s ease both;
+  }
+
+  .sim-header {
+    background: var(--ink);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .sim-header h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    color: #fff;
+    font-style: italic;
+  }
+  .sim-header p {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .sim-controls {
+    padding: 1rem 1.5rem;
+    background: #f0ebe0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .mode-toggle button {
+    padding: 0.45rem 1rem;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .mode-toggle button.active-pre {
+    background: var(--pre-color);
+    color: #fff;
+  }
+  .mode-toggle button.active-non {
+    background: var(--non-color);
+    color: #fff;
+  }
+
+  .btn {
+    padding: 0.45rem 1.1rem;
+    border-radius: 6px;
+    border: none;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-pre  { background: var(--pre-color); color: #fff; }
+  .btn-non  { background: var(--non-color); color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+
+  /* GANTT */
+  .gantt-area {
+    padding: 1.5rem;
+  }
+  .gantt-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+  .gantt-chart {
+    display: flex;
+    height: 44px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 0.4rem;
+    background: var(--bg);
+    position: relative;
+    min-width: 0;
+  }
+  .gantt-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #fff;
+    border-right: 1px solid rgba(255,255,255,0.2);
+    transition: width 0.4s ease;
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+  }
+  .gantt-ticks {
+    display: flex;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .gantt-ticks span {
+    flex: 1;
+    text-align: left;
+  }
+  .gantt-ticks span:last-child { text-align: right; }
+
+  /* PROCESS QUEUE */
+  .queue-area {
+    padding: 0 1.5rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 560px) { .queue-area { grid-template-columns: 1fr; } }
+
+  .queue-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.875rem;
+  }
+  .queue-box .q-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+  }
+  .process-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-height: 32px;
+  }
+  .chip {
+    padding: 0.3rem 0.6rem;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: all 0.3s ease;
+  }
+  .chip.running {
+    animation: chipPulse 0.8s ease infinite alternate;
+  }
+  @keyframes chipPulse {
+    from { box-shadow: 0 0 0 0 rgba(200,69,26,0.4); }
+    to   { box-shadow: 0 0 0 6px rgba(200,69,26,0); }
+  }
+
+  /* LOG */
+  .log-box {
+    margin: 0 1.5rem 1.5rem;
+    background: #1a1208;
+    border-radius: 8px;
+    padding: 0.875rem 1rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    min-height: 70px;
+    max-height: 140px;
+    overflow-y: auto;
+    line-height: 1.9;
+  }
+  .log-line { opacity: 0; animation: fadeIn 0.3s ease forwards; }
+  .lg-pre  { color: #f5a07a; }
+  .lg-non  { color: #7aaff5; }
+  .lg-muted { color: #4b5563; }
+  .lg-green { color: #6ee7b7; }
+
+  /* COMPARISON TABLE */
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+    margin-bottom: 2.5rem;
+    animation: rise 0.5s 0.4s ease both;
+  }
+  .comp-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.82rem;
+    border-bottom: 2px solid var(--border);
+  }
+  .comp-table th:nth-child(2) { color: var(--pre-color); }
+  .comp-table th:nth-child(3) { color: var(--non-color); }
+  .comp-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .comp-table td:first-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .comp-table td:nth-child(2) {
+    background: rgba(200, 69, 26, 0.04);
+  }
+  .comp-table td:nth-child(3) {
+    background: rgba(26, 110, 200, 0.04);
+  }
+  .comp-table tr:last-child td { border-bottom: none; }
+
+  /* ANALOGY */
+  .analogy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    animation: rise 0.5s 0.45s ease both;
+  }
+  @media (max-width: 560px) { .analogy-grid { grid-template-columns: 1fr; } }
+  .analogy-card {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem;
+  }
+  .analogy-card .a-head {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1rem;
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .analogy-card .a-body {
+    font-size: 0.83rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* FOOTER */
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 2px double var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* ANIMATIONS */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">Topic 05 &mdash; CPU Scheduling Concepts</div>
+      <h1>Preemptive<br><em>vs.</em> Non-Preemptive<br>Scheduling</h1>
+      <p class="subtitle">How does the OS decide when a process gives up the CPU — voluntarily, or by force?</p>
+    </div>
+    <div class="stamp-box">
+      <span class="s-label">Topic</span>
+      <div class="s-topic">05</div>
+      <span class="s-label" style="margin-top:0.3rem;">CPU Sched.</span>
+    </div>
+  </div>
+
+  <!-- INTRO -->
+  <div class="sec-label">The Core Question</div>
+  <div class="intro-box">
+    In any operating system, multiple processes compete for one (or a few) CPU cores. The <strong>scheduler</strong> decides which process runs next. But there is a deeper question: once a process starts running, <em>can the OS interrupt it mid-execution?</em> The answer splits all scheduling algorithms into two fundamental families — <strong style="color:var(--pre-color);">Preemptive</strong> and <strong style="color:var(--non-color);">Non-Preemptive</strong>. Understanding this distinction is the key to understanding every scheduling algorithm you will ever study.
+  </div>
+
+  <!-- SPLIT CARDS -->
+  <div class="sec-label">Side by Side</div>
+  <div class="split">
+    <div class="side pre">
+      <div class="side-header">
+        <div class="icon">⚡</div>
+        <h2>Preemptive<br>Scheduling</h2>
+        <span class="tag">FORCEFUL</span>
+      </div>
+      <div class="side-body">
+        <p>The OS can <strong>forcibly remove</strong> a running process from the CPU at any time — typically when a higher-priority process arrives or a time quantum expires. The interrupted process goes back to the ready queue and will resume later.</p>
+        <ul class="trait-list pre">
+          <li><span class="dot"></span>CPU can be taken away mid-burst</li>
+          <li><span class="dot"></span>Requires context saving on every switch</li>
+          <li><span class="dot"></span>Better response time for urgent tasks</li>
+          <li><span class="dot"></span>Risk of race conditions on shared data</li>
+          <li><span class="dot"></span>Used in: Round Robin, Preemptive Priority, SRTF</li>
+          <li><span class="dot"></span>Found in: Linux, Windows, macOS (all modern OSes)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="side non">
+      <div class="side-header">
+        <div class="icon">🔒</div>
+        <h2>Non-Preemptive<br>Scheduling</h2>
+        <span class="tag">COOPERATIVE</span>
+      </div>
+      <div class="side-body">
+        <p>Once a process starts running, it <strong>holds the CPU until it finishes</strong> or voluntarily yields (e.g. waiting for I/O). No other process can interrupt it. The scheduler only picks a new process when the current one is done.</p>
+        <ul class="trait-list non">
+          <li><span class="dot"></span>CPU held until burst complete or I/O wait</li>
+          <li><span class="dot"></span>Simpler — no mid-burst context saves</li>
+          <li><span class="dot"></span>Predictable execution, no race conditions</li>
+          <li><span class="dot"></span>Poor responsiveness for short urgent tasks</li>
+          <li><span class="dot"></span>Used in: FCFS, SJF (non-preemptive), Non-Preemptive Priority</li>
+          <li><span class="dot"></span>Found in: older batch systems, embedded systems</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERACTIVE SIMULATOR -->
+  <div class="sec-label">Interactive Simulator</div>
+  <div class="sim-wrap">
+    <div class="sim-header">
+      <div>
+        <h3>Gantt Chart Simulator</h3>
+        <p>Watch how the same processes execute differently under each mode</p>
+      </div>
+    </div>
+
+    <div class="sim-controls">
+      <span style="font-size:0.82rem;font-weight:600;color:var(--ink);">Mode:</span>
+      <div class="mode-toggle">
+        <button id="btnPre" class="active-pre" onclick="setMode('pre')">⚡ Preemptive</button>
+        <button id="btnNon" onclick="setMode('non')">🔒 Non-Preemptive</button>
+      </div>
+      <button class="btn btn-pre" id="stepBtn" onclick="step()">Step →</button>
+      <button class="btn btn-ghost" onclick="autoRun()" id="autoBtn">▶ Auto</button>
+      <button class="btn btn-ghost" onclick="resetAll()">↺ Reset</button>
+      <span id="modeInfo" style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--muted);">Priority + Preemption | Quantum = 2</span>
+    </div>
+
+    <div class="gantt-area">
+      <div class="gantt-label">CPU Timeline (Gantt Chart)</div>
+      <div class="gantt-chart" id="ganttChart"></div>
+      <div class="gantt-ticks" id="ganttTicks"></div>
+
+      <div class="queue-area">
+        <div class="queue-box">
+          <div class="q-title">Ready Queue</div>
+          <div class="process-chips" id="readyQueue"></div>
+        </div>
+        <div class="queue-box">
+          <div class="q-title">Running / Completed</div>
+          <div class="process-chips" id="runningBox"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="log-box" id="simLog">
+      <div class="log-line lg-muted">// Choose a mode and press Step to begin the simulation.</div>
+    </div>
+  </div>
+
+  <!-- COMPARISON TABLE -->
+  <div class="sec-label">Feature Comparison</div>
+  <table class="comp-table">
+    <thead>
+      <tr>
+        <th>Criterion</th>
+        <th>⚡ Preemptive</th>
+        <th>🔒 Non-Preemptive</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>CPU allocation</td>
+        <td>Can be forcibly reclaimed anytime</td>
+        <td>Held until process yields or finishes</td>
+      </tr>
+      <tr>
+        <td>Response time</td>
+        <td>Low — urgent tasks run quickly</td>
+        <td>High — must wait for current process</td>
+      </tr>
+      <tr>
+        <td>Overhead</td>
+        <td>Higher — frequent context switches</td>
+        <td>Lower — fewer context switches</td>
+      </tr>
+      <tr>
+        <td>Starvation risk</td>
+        <td>Possible (low-priority waits)</td>
+        <td>Possible (long process blocks others)</td>
+      </tr>
+      <tr>
+        <td>Complexity</td>
+        <td>More complex — needs synchronization</td>
+        <td>Simpler — straightforward flow</td>
+      </tr>
+      <tr>
+        <td>Best for</td>
+        <td>Interactive, real-time, general-purpose</td>
+        <td>Batch processing, predictable workloads</td>
+      </tr>
+      <tr>
+        <td>Examples</td>
+        <td>Round Robin, SRTF, Preemptive Priority</td>
+        <td>FCFS, SJF, Non-Preemptive Priority</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ANALOGY -->
+  <div class="sec-label">Real-World Analogies</div>
+  <div class="analogy-grid">
+    <div class="analogy-card">
+      <div class="a-head" style="color:var(--pre-color);">⚡ Preemptive</div>
+      <div class="a-body">
+        Like a <strong>hospital emergency room</strong> — if a critical patient arrives while a doctor is treating a minor injury, the doctor stops and immediately switches to the emergency. The minor case resumes later. The urgency determines who gets the resource <em>right now</em>.
+      </div>
+    </div>
+    <div class="analogy-card">
+      <div class="a-head" style="color:var(--non-color);">🔒 Non-Preemptive</div>
+      <div class="a-body">
+        Like a <strong>bank teller</strong> — once a customer is being served, the teller must finish that transaction completely before calling the next customer, even if a VIP walks in. Everyone waits in line no matter what.
+      </div>
+    </div>
+    <div class="analogy-card">
+      <div class="a-head" style="color:var(--pre-color);">⚡ Context Switch</div>
+      <div class="a-body">
+        When preemption happens, the OS saves everything about the current process (registers, program counter, stack) into its <strong>PCB (Process Control Block)</strong> so it can resume exactly where it left off — like using a bookmark mid-chapter.
+      </div>
+    </div>
+    <div class="analogy-card">
+      <div class="a-head" style="color:var(--non-color);">🔒 Cooperative Trust</div>
+      <div class="a-body">
+        Non-preemptive scheduling is sometimes called <strong>"cooperative"</strong> — the OS <em>trusts</em> each process to be well-behaved and yield the CPU eventually. One misbehaving process can freeze the entire system — a famous flaw of early Windows (3.x era).
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Topic 05 — Preemptive vs Non-Preemptive Scheduling</span>
+    <span>Thamr Ayad Erzaij &bull; ID: 01-24-00045</span>
+    <span>OS Web Portfolio 2026</span>
+  </footer>
+
+</div>
+
+<script>
+// ─── Simulation State ─────────────────────────────────────────────────────────
+
+// Processes: name, burst, priority (lower = higher priority), color
+const PROCESSES = [
+  { name:'P1', burst:4, priority:3, color:'#c8451a' },
+  { name:'P2', burst:2, priority:1, color:'#1a6ec8' },
+  { name:'P3', burst:5, priority:4, color:'#b8922a' },
+  { name:'P4', burst:1, priority:2, color:'#1a8c5a' },
+];
+// Arrival: P1@0, P2@1, P3@2, P4@3
+
+const ARRIVALS = [0,1,2,3];
+const QUANTUM = 2;
+
+let mode = 'pre';
+let ganttBlocks = []; // {name, color, start, end}
+let time = 0;
+let procs = [];
+let autoTimer = null;
+let simDone = false;
+
+function initProcs() {
+  return PROCESSES.map((p,i) => ({
+    ...p,
+    remaining: p.burst,
+    arrived: false,
+    done: false,
+    arrival: ARRIVALS[i],
+    quantumUsed: 0,
+  }));
+}
+
+function resetAll() {
+  clearInterval(autoTimer); autoTimer = null;
+  document.getElementById('autoBtn').textContent = '▶ Auto';
+  time = 0;
+  ganttBlocks = [];
+  simDone = false;
+  procs = initProcs();
+  renderGantt();
+  renderQueues();
+  clearLog();
+  log('<span class="lg-muted">// Simulation reset. Press Step to begin.</span>');
+  updateModeInfo();
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btnPre').className = m==='pre' ? 'active-pre' : '';
+  document.getElementById('btnNon').className = m==='non' ? 'active-non' : '';
+  document.getElementById('stepBtn').className = 'btn ' + (m==='pre' ? 'btn-pre' : 'btn-non');
+  resetAll();
+}
+
+function updateModeInfo() {
+  document.getElementById('modeInfo').textContent =
+    mode==='pre'
+      ? 'Priority Scheduling (Preemptive) | Quantum = 2'
+      : 'Priority Scheduling (Non-Preemptive)';
+}
+
+// ─── Simulation Logic ─────────────────────────────────────────────────────────
+
+function getReady() {
+  return procs.filter(p => p.arrived && !p.done);
+}
+
+function checkArrivals() {
+  procs.forEach(p => { if (!p.arrived && p.arrival <= time) p.arrived = true; });
+}
+
+let currentProc = null;
+
+function step() {
+  if (simDone) { log('<span class="lg-green">// All processes complete!</span>'); return; }
+
+  checkArrivals();
+  const ready = getReady();
+
+  if (ready.length === 0) {
+    log(`<span class="lg-muted">t=${time}: CPU idle, waiting for process...</span>`);
+    time++;
+    checkArrivals();
+    renderQueues();
+    return;
+  }
+
+  // Pick best process by priority
+  ready.sort((a,b) => a.priority - b.priority);
+  const chosen = ready[0];
+
+  if (mode === 'pre') {
+    // Preemptive: run 1 tick, check for better process
+    if (currentProc && currentProc !== chosen) {
+      log(`<span class="lg-pre">t=${time}: PREEMPT! ${currentProc.name} interrupted by ${chosen.name} (higher priority)</span>`);
+      currentProc.quantumUsed = 0;
+    }
+    currentProc = chosen;
+    chosen.remaining--;
+    chosen.quantumUsed = (chosen.quantumUsed||0)+1;
+    ganttBlocks.push({name:chosen.name, color:chosen.color, start:time, end:time+1});
+    log(`<span class="lg-pre">t=${time}→${time+1}: ${chosen.name} runs (remaining: ${chosen.remaining})</span>`);
+    time++;
+    checkArrivals();
+
+    if (chosen.remaining === 0) {
+      chosen.done = true;
+      currentProc = null;
+      log(`<span class="lg-green">  ✓ ${chosen.name} finished at t=${time}</span>`);
+    }
+  } else {
+    // Non-preemptive: run chosen to completion (or until yields)
+    if (!currentProc || currentProc.done) {
+      currentProc = chosen;
+      log(`<span class="lg-non">t=${time}: ${chosen.name} starts (will run to completion — non-preemptive)</span>`);
+    }
+    // Run full burst of currentProc
+    const p = currentProc;
+    const ticks = p.remaining;
+    for (let i = 0; i < ticks; i++) {
+      checkArrivals();
+      // Show if new arrivals would preempt (but don't)
+      const newReady = getReady().filter(x => x !== p);
+      if (newReady.length > 0 && newReady[0].priority < p.priority) {
+        log(`<span class="lg-non">t=${time}: ${newReady[0].name} arrives (priority ${newReady[0].priority}) — but cannot preempt ${p.name}</span>`);
+      }
+      ganttBlocks.push({name:p.name, color:p.color, start:time, end:time+1});
+      time++;
+      p.remaining--;
+      checkArrivals();
+    }
+    p.done = true;
+    currentProc = null;
+    log(`<span class="lg-green">t=${time}: ${p.name} finishes (non-preemptive run complete)</span>`);
+  }
+
+  renderGantt();
+  renderQueues();
+
+  if (procs.every(p => p.done)) {
+    simDone = true;
+    log(`<span class="lg-green">// All ${procs.length} processes complete at t=${time}. Simulation done.</span>`);
+    clearInterval(autoTimer); autoTimer = null;
+    document.getElementById('autoBtn').textContent = '▶ Auto';
+  }
+}
+
+function autoRun() {
+  if (simDone) { resetAll(); return; }
+  if (autoTimer) {
+    clearInterval(autoTimer); autoTimer = null;
+    document.getElementById('autoBtn').textContent = '▶ Auto';
+  } else {
+    document.getElementById('autoBtn').textContent = '⏸ Pause';
+    autoTimer = setInterval(() => {
+      step();
+      if (simDone) { clearInterval(autoTimer); autoTimer = null; document.getElementById('autoBtn').textContent = '▶ Auto'; }
+    }, 900);
+  }
+}
+
+// ─── Rendering ────────────────────────────────────────────────────────────────
+
+function renderGantt() {
+  const chart = document.getElementById('ganttChart');
+  const ticks = document.getElementById('ganttTicks');
+  chart.innerHTML = '';
+  ticks.innerHTML = '';
+  if (ganttBlocks.length === 0) return;
+
+  // Merge consecutive same-process blocks
+  const merged = [];
+  ganttBlocks.forEach(b => {
+    const last = merged[merged.length-1];
+    if (last && last.name===b.name && last.end===b.start) last.end = b.end;
+    else merged.push({...b});
+  });
+
+  const total = ganttBlocks[ganttBlocks.length-1].end;
+
+  merged.forEach(b => {
+    const w = ((b.end - b.start) / total * 100).toFixed(2);
+    const bar = document.createElement('div');
+    bar.className = 'gantt-bar';
+    bar.style.cssText = `width:${w}%;background:${b.color};`;
+    bar.textContent = `${b.name}`;
+    bar.title = `${b.name}: t${b.start}→t${b.end}`;
+    chart.appendChild(bar);
+  });
+
+  // Ticks
+  const tickCount = Math.min(total+1, 14);
+  for (let i = 0; i <= total; i++) {
+    if (i % Math.ceil(total/12) === 0 || i === total) {
+      const t = document.createElement('span');
+      t.style.cssText = `position:absolute;left:${(i/total*100).toFixed(1)}%;font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--muted);`;
+      t.textContent = i;
+      ticks.appendChild(t);
+    }
+  }
+  ticks.style.position = 'relative';
+  ticks.style.height = '16px';
+}
+
+function renderQueues() {
+  const readyEl = document.getElementById('readyQueue');
+  const runEl   = document.getElementById('runningBox');
+  readyEl.innerHTML = ''; runEl.innerHTML = '';
+
+  const isRunning = (p) => currentProc && currentProc.name === p.name && !p.done;
+
+  procs.forEach(p => {
+    if (p.done) {
+      const chip = makeChip(p, 'done');
+      runEl.appendChild(chip);
+    } else if (isRunning(p)) {
+      const chip = makeChip(p, 'running');
+      runEl.appendChild(chip);
+    } else if (p.arrived && !p.done) {
+      const chip = makeChip(p, 'ready');
+      readyEl.appendChild(chip);
+    } else {
+      const chip = makeChip(p, 'waiting');
+      readyEl.appendChild(chip);
+    }
+  });
+}
+
+function makeChip(p, state) {
+  const chip = document.createElement('div');
+  chip.className = 'chip' + (state==='running' ? ' running' : '');
+  const configs = {
+    running: { bg: p.color+'22', border: p.color,      color: p.color,       label: '▶' },
+    ready:   { bg: p.color+'11', border: p.color+'66', color: p.color,       label: '⬡' },
+    done:    { bg: '#6ee7b722',  border: '#6ee7b7',    color: '#1a6e50',     label: '✓' },
+    waiting: { bg: '#9ca3af22', border: '#9ca3af66',   color: '#6b7280',     label: '◌' },
+  };
+  const c = configs[state];
+  chip.style.cssText = `background:${c.bg};border-color:${c.border};color:${c.color};`;
+  chip.innerHTML = `<span>${c.label}</span> ${p.name} <span style="opacity:0.6;font-size:0.65rem;">${state==='done'?'done':'rem:'+p.remaining}</span>`;
+  return chip;
+}
+
+function log(html) {
+  const box = document.getElementById('simLog');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = html;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('simLog').innerHTML = '';
+}
+
+// Init
+procs = initProcs();
+renderQueues();
+updateModeInfo();
+</script>
+</body>
+</html>

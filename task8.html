@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Switching - OS Portfolio Task 8</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --background: #1a1f2e;
+            --foreground: #f2f2f2;
+            --card: #242d3d;
+            --card-foreground: #f2f2f2;
+            --secondary: #323d4d;
+            --secondary-foreground: #e6e6e6;
+            --muted: #404d5d;
+            --muted-foreground: #b3b3b3;
+            --accent: #3b82f6;
+            --accent-foreground: #1a1f2e;
+            --border: #404d5d;
+            --destructive: #ef4444;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--foreground);
+            font-family: 'Inter', system-ui, sans-serif;
+            line-height: 1.6;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        code, pre {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 400;
+        }
+
+        .font-mono {
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--border);
+            background-color: rgba(36, 45, 61, 0.5);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .container {
+                padding: 0 1.5rem;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                padding: 0 2rem;
+            }
+        }
+
+        header .container {
+            padding-top: 1.5rem;
+            padding-bottom: 1.5rem;
+        }
+
+        header h1 {
+            font-size: 1.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        header p {
+            color: var(--muted-foreground);
+            font-size: 0.875rem;
+        }
+
+        main {
+            padding: 3rem 0;
+        }
+
+        /* Sections */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 1.875rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--muted-foreground);
+            line-height: 1.8;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .grid-cols-1 {
+            grid-template-columns: 1fr;
+        }
+
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .grid-cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        @media (max-width: 768px) {
+            .grid-cols-2,
+            .grid-cols-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .lg\:grid-cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .lg\:col-span-2 {
+            grid-column: span 2;
+        }
+
+        .lg\:col-span-1 {
+            grid-column: span 1;
+        }
+
+        @media (max-width: 1024px) {
+            .lg\:grid-cols-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .lg\:col-span-2,
+            .lg\:col-span-1 {
+                grid-column: span 1;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+        }
+
+        .card-hero {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            height: fit-content;
+        }
+
+        /* Buttons */
+        button {
+            background-color: var(--accent);
+            color: var(--accent-foreground);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.outline {
+            background-color: transparent;
+            color: var(--foreground);
+            border: 1px solid var(--border);
+        }
+
+        button.outline:hover {
+            background-color: var(--secondary);
+        }
+
+        /* Input */
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Status Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .badge-running {
+            background-color: var(--accent);
+            color: var(--accent-foreground);
+        }
+
+        .badge-ready {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+        }
+
+        .badge-waiting {
+            background-color: var(--muted);
+            color: var(--muted-foreground);
+        }
+
+        .badge-blocked {
+            background-color: var(--destructive);
+            color: white;
+        }
+
+        /* Flex */
+        .flex {
+            display: flex;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        .gap-3 {
+            gap: 0.75rem;
+        }
+
+        .gap-4 {
+            gap: 1rem;
+        }
+
+        .gap-6 {
+            gap: 1.5rem;
+        }
+
+        /* Spacing */
+        .mb-2 {
+            margin-bottom: 0.5rem;
+        }
+
+        .mb-3 {
+            margin-bottom: 0.75rem;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem;
+        }
+
+        .mb-6 {
+            margin-bottom: 1.5rem;
+        }
+
+        .mt-1 {
+            margin-top: 0.25rem;
+        }
+
+        .mt-2 {
+            margin-top: 0.5rem;
+        }
+
+        .mt-6 {
+            margin-top: 1.5rem;
+        }
+
+        .pt-6 {
+            padding-top: 1.5rem;
+        }
+
+        .pb-6 {
+            padding-bottom: 1.5rem;
+        }
+
+        .px-3 {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        .py-1 {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+        }
+
+        .space-y-2 > * + * {
+            margin-top: 0.5rem;
+        }
+
+        .space-y-3 > * + * {
+            margin-top: 0.75rem;
+        }
+
+        .space-y-4 > * + * {
+            margin-top: 1rem;
+        }
+
+        .space-y-6 > * + * {
+            margin-top: 1.5rem;
+        }
+
+        /* Text */
+        .text-sm {
+            font-size: 0.875rem;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+        }
+
+        .text-2xl {
+            font-size: 1.5rem;
+        }
+
+        .text-3xl {
+            font-size: 1.875rem;
+        }
+
+        .text-4xl {
+            font-size: 2.25rem;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .text-accent {
+            color: var(--accent);
+        }
+
+        .text-muted-foreground {
+            color: var(--muted-foreground);
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .uppercase {
+            text-transform: uppercase;
+        }
+
+        .tracking-wider {
+            letter-spacing: 0.05em;
+        }
+
+        .tracking-tight {
+            letter-spacing: -0.025em;
+        }
+
+        /* Background */
+        .bg-accent {
+            background-color: var(--accent);
+        }
+
+        .bg-secondary {
+            background-color: rgba(50, 61, 77, 0.3);
+        }
+
+        .bg-background {
+            background-color: var(--background);
+        }
+
+        .bg-card {
+            background-color: var(--card);
+        }
+
+        /* Border */
+        .border-b {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .border-t {
+            border-top: 1px solid var(--border);
+        }
+
+        .border {
+            border: 1px solid var(--border);
+        }
+
+        .rounded {
+            border-radius: 0.5rem;
+        }
+
+        .rounded-lg {
+            border-radius: 0.75rem;
+        }
+
+        .rounded-full {
+            border-radius: 9999px;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 0.5rem;
+            background-color: var(--secondary);
+            border-radius: 0.25rem;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--accent);
+            transition: width 0.3s ease;
+        }
+
+        /* Divider */
+        .divider {
+            width: 0.25rem;
+            background-color: var(--accent);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            padding-top: 3rem;
+            padding-bottom: 1.5rem;
+            text-align: center;
+            color: var(--muted-foreground);
+            font-size: 0.875rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            main {
+                padding: 1.5rem 0;
+            }
+
+            section {
+                margin-bottom: 2rem;
+            }
+        }
+
+        .w-1 {
+            width: 0.25rem;
+        }
+
+        .w-8 {
+            width: 2rem;
+        }
+
+        .h-2 {
+            height: 0.5rem;
+        }
+
+        .h-8 {
+            height: 2rem;
+        }
+
+        .h-fit {
+            height: fit-content;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .relative {
+            position: relative;
+        }
+
+        .absolute {
+            position: absolute;
+        }
+
+        .top-4 {
+            top: 1rem;
+        }
+
+        .right-4 {
+            right: 1rem;
+        }
+
+        .right-2 {
+            right: -0.5rem;
+        }
+
+        .top-1\/2 {
+            top: 50%;
+        }
+
+        .-translate-y-1\/2 {
+            transform: translateY(-50%);
+        }
+
+        .flex-1 {
+            flex: 1;
+        }
+
+        .bg-secondary\/50 {
+            background-color: rgba(50, 61, 77, 0.5);
+        }
+
+        .bg-secondary\/30 {
+            background-color: rgba(50, 61, 77, 0.3);
+        }
+
+        .bg-accent\/20 {
+            background-color: rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <h1 class="font-mono tracking-tight">Context Switching</h1>
+            <p>Operating Systems - Task 8 by Abdulla</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Hero Section -->
+        <section class="grid lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2">
+                <h2 class="text-4xl font-bold font-mono mb-4">Understanding Context Switching</h2>
+                <p class="text-lg text-muted-foreground leading-relaxed mb-6">
+                    Context switching is the process by which the operating system stops executing one process, saves its current state, and loads the saved state of another process to resume execution. This fundamental mechanism enables multitasking and allows a single CPU to appear to run multiple programs simultaneously.
+                </p>
+                <div class="space-y-4">
+                    <div class="flex gap-4">
+                        <div class="w-1 bg-accent"></div>
+                        <div>
+                            <h3 class="font-mono font-bold text-sm uppercase tracking-wider">Key Concept</h3>
+                            <p class="text-sm text-muted-foreground">The scheduler decides which process runs next based on scheduling algorithms</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card card-hero">
+                <h3 class="font-mono font-bold text-sm uppercase tracking-wider mb-4">Quick Facts</h3>
+                <ul class="space-y-3 text-sm">
+                    <li class="flex gap-2">
+                        <span class="text-accent font-bold">→</span>
+                        <span>Occurs thousands of times per second</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-accent font-bold">→</span>
+                        <span>Introduces CPU overhead</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-accent font-bold">→</span>
+                        <span>Managed by the Process Scheduler</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-accent font-bold">→</span>
+                        <span>Essential for multitasking OS</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Process Control Block Section -->
+        <section class="card">
+            <h2 class="text-2xl font-bold font-mono mb-6">The Process Control Block (PCB)</h2>
+            <p class="text-muted-foreground mb-6">
+                The Process Control Block is a data structure that contains all information needed to save and restore a process's state during context switching.
+            </p>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-secondary border rounded p-4">
+                    <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2">Process ID</div>
+                    <div class="font-mono font-bold text-accent">PID</div>
+                </div>
+                <div class="bg-secondary border rounded p-4">
+                    <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2">Program Counter</div>
+                    <div class="font-mono font-bold text-accent">PC</div>
+                </div>
+                <div class="bg-secondary border rounded p-4">
+                    <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2">CPU Registers</div>
+                    <div class="font-mono font-bold text-accent">R0-R31</div>
+                </div>
+                <div class="bg-secondary border rounded p-4">
+                    <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2">Process State</div>
+                    <div class="font-mono font-bold text-accent">Ready/Running/Waiting</div>
+                </div>
+                <div class="bg-secondary border rounded p-4">
+                    <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2">Memory Info</div>
+                    <div class="font-mono font-bold text-accent">Base/Limit</div>
+                </div>
+                <div class="bg-secondary border rounded p-4">
+                    <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2">I/O Status</div>
+                    <div class="font-mono font-bold text-accent">Device List</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Simulation -->
+        <section>
+            <h2 class="text-2xl font-bold font-mono mb-6">Interactive Simulation</h2>
+            <div class="grid lg:grid-cols-3 gap-6">
+                <!-- Controls -->
+                <div class="card card-hero">
+                    <h3 class="font-mono font-bold text-sm uppercase tracking-wider mb-4">Controls</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-xs uppercase tracking-wider text-muted-foreground font-mono block mb-2">Time Slice</label>
+                            <input type="range" id="timeSlice" min="1" max="8" value="3" class="w-full">
+                            <div class="text-xs text-accent font-mono mt-1"><span id="timeSliceValue">3</span> units</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="startBtn" class="flex-1">▶ Start</button>
+                            <button id="resetBtn" class="outline">↻</button>
+                        </div>
+                    </div>
+
+                    <!-- Metrics -->
+                    <div class="mt-6 pt-6 border-t space-y-3">
+                        <div>
+                            <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-1">Total Time</div>
+                            <div class="text-2xl font-bold font-mono text-accent" id="totalTime">0</div>
+                        </div>
+                        <div>
+                            <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-1">Context Switches</div>
+                            <div class="text-2xl font-bold font-mono text-accent" id="switchCount">0</div>
+                        </div>
+                        <div>
+                            <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-1">Overhead (units)</div>
+                            <div class="text-2xl font-bold font-mono text-accent" id="switchOverhead">0</div>
+                        </div>
+                        <div>
+                            <div class="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-1">Overhead %</div>
+                            <div class="text-2xl font-bold font-mono text-accent" id="overheadPercent">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Process Visualization -->
+                <div class="lg:col-span-2 card">
+                    <h3 class="font-mono font-bold text-sm uppercase tracking-wider mb-4">Process States</h3>
+                    <div id="processList" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Context Switching Steps -->
+        <section>
+            <h2 class="text-2xl font-bold font-mono mb-6">The Context Switching Process</h2>
+            <div class="grid grid-cols-4 gap-4">
+                <div class="card relative">
+                    <div class="absolute top-4 right-4 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                        <span class="font-mono font-bold text-accent text-sm">1</span>
+                    </div>
+                    <h3 class="font-mono font-bold mb-2">Save State</h3>
+                    <p class="text-sm text-muted-foreground">CPU saves current process's registers and PC to PCB</p>
+                </div>
+                <div class="card relative">
+                    <div class="absolute top-4 right-4 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                        <span class="font-mono font-bold text-accent text-sm">2</span>
+                    </div>
+                    <h3 class="font-mono font-bold mb-2">Select Next</h3>
+                    <p class="text-sm text-muted-foreground">Scheduler chooses next process based on algorithm</p>
+                </div>
+                <div class="card relative">
+                    <div class="absolute top-4 right-4 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                        <span class="font-mono font-bold text-accent text-sm">3</span>
+                    </div>
+                    <h3 class="font-mono font-bold mb-2">Load State</h3>
+                    <p class="text-sm text-muted-foreground">CPU loads new process's state from its PCB</p>
+                </div>
+                <div class="card relative">
+                    <div class="absolute top-4 right-4 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                        <span class="font-mono font-bold text-accent text-sm">4</span>
+                    </div>
+                    <h3 class="font-mono font-bold mb-2">Resume</h3>
+                    <p class="text-sm text-muted-foreground">CPU continues execution of new process</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Overhead Explanation -->
+        <section class="card bg-secondary/30">
+            <h2 class="text-2xl font-bold font-mono mb-4">Context Switching Overhead</h2>
+            <p class="text-muted-foreground mb-6">
+                Context switching introduces overhead because CPU time is spent saving and loading state instead of executing useful work. This overhead includes:
+            </p>
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-mono font-bold text-accent mb-3">Direct Costs</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex gap-2">
+                            <span class="text-accent">•</span>
+                            <span>Time to save/load registers and memory state</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-accent">•</span>
+                            <span>Scheduler execution time</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-accent">•</span>
+                            <span>Dispatcher execution time</span>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-mono font-bold text-accent mb-3">Indirect Costs</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex gap-2">
+                            <span class="text-accent">•</span>
+                            <span>CPU cache invalidation (cache miss penalty)</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-accent">•</span>
+                            <span>TLB (Translation Lookaside Buffer) flush</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-accent">•</span>
+                            <span>Pipeline flush on some architectures</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real-World Impact -->
+        <section>
+            <h2 class="text-2xl font-bold font-mono mb-6">Real-World Impact</h2>
+            <div class="grid grid-cols-3 gap-6">
+                <div class="card">
+                    <div class="text-accent font-mono font-bold mb-2">Scenario 1</div>
+                    <h3 class="font-bold mb-2">Optimal Switching</h3>
+                    <p class="text-sm text-muted-foreground mb-4">
+                        Processes with long CPU bursts and infrequent I/O operations minimize context switches.
+                    </p>
+                    <div class="text-xs font-mono text-accent">Overhead: 2-5%</div>
+                </div>
+                <div class="card">
+                    <div class="text-accent font-mono font-bold mb-2">Scenario 2</div>
+                    <h3 class="font-bold mb-2">Moderate Switching</h3>
+                    <p class="text-sm text-muted-foreground mb-4">
+                        Balanced workload with typical I/O patterns and scheduling.
+                    </p>
+                    <div class="text-xs font-mono text-accent">Overhead: 10-20%</div>
+                </div>
+                <div class="card">
+                    <div class="text-accent font-mono font-bold mb-2">Scenario 3</div>
+                    <h3 class="font-bold mb-2">Thrashing</h3>
+                    <p class="text-sm text-muted-foreground mb-4">
+                        Excessive context switches cause more overhead than useful work.
+                    </p>
+                    <div class="text-xs font-mono text-accent">Overhead: 50%+</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p class="font-mono">Context Switching Portfolio • Operating Systems Assignment • May 2026</p>
+        </footer>
+    </main>
+
+    <script>
+        // State management
+        let processes = [
+            { id: 1, name: 'P1', state: 'running', pc: 0x2048, registers: 'R0:5, R1:10', burstTime: 8, elapsedTime: 0 },
+            { id: 2, name: 'P2', state: 'ready', pc: 0x3000, registers: 'R0:0, R1:0', burstTime: 6, elapsedTime: 0 },
+            { id: 3, name: 'P3', state: 'waiting', pc: 0x4000, registers: 'R0:3, R1:7', burstTime: 5, elapsedTime: 0 },
+        ];
+
+        let isRunning = false;
+        let timeSlice = 3;
+        let totalTime = 0;
+        let switchCount = 0;
+        let switchOverhead = 0;
+        let simulationInterval = null;
+
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const timeSliceInput = document.getElementById('timeSlice');
+        const timeSliceValue = document.getElementById('timeSliceValue');
+
+        // Event listeners
+        startBtn.addEventListener('click', toggleSimulation);
+        resetBtn.addEventListener('click', resetSimulation);
+        timeSliceInput.addEventListener('change', (e) => {
+            timeSlice = Number(e.target.value);
+            timeSliceValue.textContent = timeSlice;
+        });
+
+        function toggleSimulation() {
+            isRunning = !isRunning;
+            startBtn.textContent = isRunning ? '⏸ Pause' : '▶ Start';
+            timeSliceInput.disabled = isRunning;
+
+            if (isRunning) {
+                simulationInterval = setInterval(runSimulationStep, 500);
+            } else {
+                clearInterval(simulationInterval);
+            }
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            clearInterval(simulationInterval);
+            startBtn.textContent = '▶ Start';
+            timeSliceInput.disabled = false;
+
+            processes = [
+                { id: 1, name: 'P1', state: 'running', pc: 0x2048, registers: 'R0:5, R1:10', burstTime: 8, elapsedTime: 0 },
+                { id: 2, name: 'P2', state: 'ready', pc: 0x3000, registers: 'R0:0, R1:0', burstTime: 6, elapsedTime: 0 },
+                { id: 3, name: 'P3', state: 'waiting', pc: 0x4000, registers: 'R0:3, R1:7', burstTime: 5, elapsedTime: 0 },
+            ];
+
+            totalTime = 0;
+            switchCount = 0;
+            switchOverhead = 0;
+
+            updateUI();
+        }
+
+        function runSimulationStep() {
+            const runningIdx = processes.findIndex(p => p.state === 'running');
+
+            if (runningIdx === -1) {
+                const readyIdx = processes.findIndex(p => p.state === 'ready');
+                if (readyIdx !== -1) {
+                    processes[readyIdx].state = 'running';
+                    switchCount++;
+                    switchOverhead += 2;
+                }
+            } else {
+                processes[runningIdx].elapsedTime += 1;
+                if (processes[runningIdx].elapsedTime >= timeSlice) {
+                    processes[runningIdx].state = 'ready';
+                    processes[runningIdx].elapsedTime = 0;
+
+                    const nextReady = processes.findIndex(p => p.state === 'ready');
+                    if (nextReady !== -1) {
+                        processes[nextReady].state = 'running';
+                        switchCount++;
+                        switchOverhead += 2;
+                    }
+                }
+            }
+
+            totalTime++;
+            updateUI();
+        }
+
+        function updateUI() {
+            // Update metrics
+            document.getElementById('totalTime').textContent = totalTime;
+            document.getElementById('switchCount').textContent = switchCount;
+            document.getElementById('switchOverhead').textContent = switchOverhead;
+            const overheadPercent = totalTime > 0 ? ((switchOverhead / totalTime) * 100).toFixed(1) : '0';
+            document.getElementById('overheadPercent').textContent = overheadPercent + '%';
+
+            // Update process list
+            const processList = document.getElementById('processList');
+            processList.innerHTML = processes.map(proc => {
+                const badgeClass = `badge badge-${proc.state}`;
+                const progressPercent = (proc.elapsedTime / timeSlice) * 100;
+
+                return `
+                    <div class="border rounded p-4 bg-secondary/30">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="${badgeClass}">
+                                    ${proc.state.toUpperCase()}
+                                </div>
+                                <div class="font-mono font-bold">${proc.name}</div>
+                            </div>
+                            <div class="text-xs text-muted-foreground font-mono">Elapsed: ${proc.elapsedTime}/${timeSlice}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                            <div>
+                                <span class="text-muted-foreground">PC:</span> <span class="text-accent">0x${proc.pc.toString(16).toUpperCase()}</span>
+                            </div>
+                            <div>
+                                <span class="text-muted-foreground">Regs:</span> <span class="text-accent">${proc.registers}</span>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Initial render
+        updateUI();
+    </script>
+</body>
+</html>

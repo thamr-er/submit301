@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interrupts — Operating Systems</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-2: #0f141c;
+    --surface: #131a25;
+    --surface-2: #1a2433;
+    --border: #2a3441;
+    --border-bright: #3d4d63;
+    --text: #e8e6e3;
+    --text-dim: #9aa5b8;
+    --text-muted: #5d6878;
+    --amber: #ffb454;
+    --cyan: #59c2ff;
+    --green: #6fc28a;
+    --red: #f07178;
+    --magenta: #d2a6ff;
+    --grid: rgba(255, 180, 84, 0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 300;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at top, rgba(89, 194, 255, 0.06), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(255, 180, 84, 0.04), transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 48px 32px 96px;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 32px 0;
+    margin-bottom: 56px;
+    position: relative;
+  }
+
+  .badge-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+
+  .badge-row .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--amber);
+    border-radius: 50%;
+    margin-right: 8px;
+    box-shadow: 0 0 8px var(--amber);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  h1 {
+    font-family: 'Major Mono Display', monospace;
+    font-size: clamp(48px, 9vw, 120px);
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 0.95;
+    margin-bottom: 16px;
+  }
+
+  h1 .accent { color: var(--amber); }
+
+  .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-dim);
+    max-width: 600px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ============ SECTIONS ============ */
+  section {
+    margin-bottom: 80px;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--amber);
+  }
+
+  h2 {
+    font-family: 'Major Mono Display', monospace;
+    font-size: clamp(28px, 4vw, 44px);
+    color: var(--text);
+    margin-bottom: 24px;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--cyan);
+    margin-bottom: 12px;
+    letter-spacing: 0.02em;
+  }
+
+  p {
+    color: var(--text-dim);
+    max-width: 70ch;
+    margin-bottom: 16px;
+    font-size: 15px;
+  }
+
+  p strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--amber);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.88em;
+  }
+
+  /* ============ SIMULATOR ============ */
+  .sim-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sim-titlebar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .titlebar-dots { display: flex; gap: 6px; }
+  .titlebar-dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border-bright);
+  }
+  .titlebar-dots span:nth-child(1) { background: var(--red); }
+  .titlebar-dots span:nth-child(2) { background: var(--amber); }
+  .titlebar-dots span:nth-child(3) { background: var(--green); }
+
+  .sim-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    min-height: 560px;
+  }
+
+  @media (max-width: 900px) {
+    .sim-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+  }
+
+  .status-indicator {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    transition: all 0.3s;
+  }
+
+  .status-running { background: rgba(111, 194, 138, 0.15); color: var(--green); border: 1px solid var(--green); }
+  .status-halted { background: rgba(240, 113, 120, 0.15); color: var(--red); border: 1px solid var(--red); }
+  .status-isr { background: rgba(89, 194, 255, 0.15); color: var(--cyan); border: 1px solid var(--cyan); }
+  .status-saving { background: rgba(255, 180, 84, 0.15); color: var(--amber); border: 1px solid var(--amber); }
+
+  /* Instruction list */
+  .instruction-list {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .instr-line {
+    display: flex;
+    gap: 16px;
+    padding: 6px 10px;
+    border-left: 3px solid transparent;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    border-radius: 2px;
+  }
+
+  .instr-line.active {
+    background: rgba(255, 180, 84, 0.08);
+    border-left-color: var(--amber);
+    color: var(--text);
+  }
+
+  .instr-line.isr-active {
+    background: rgba(89, 194, 255, 0.10);
+    border-left-color: var(--cyan);
+    color: var(--text);
+  }
+
+  .instr-addr { color: var(--text-muted); min-width: 60px; }
+  .instr-line.active .instr-addr { color: var(--amber); }
+  .instr-line.isr-active .instr-addr { color: var(--cyan); }
+  .instr-op { color: var(--magenta); font-weight: 500; min-width: 64px; }
+  .instr-arg { color: var(--text-dim); }
+
+  .program-divider {
+    margin: 12px 0;
+    padding: 6px 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--text-muted);
+    border-top: 1px dashed var(--border);
+    border-bottom: 1px dashed var(--border);
+  }
+
+  /* Registers */
+  .reg-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  .reg {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 2px;
+    transition: all 0.3s;
+  }
+
+  .reg.changed {
+    border-color: var(--amber);
+    background: rgba(255, 180, 84, 0.06);
+  }
+
+  .reg-name {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .reg-val {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* Stack */
+  .stack-container {
+    margin-top: 20px;
+    flex: 1;
+  }
+
+  .stack-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+    min-height: 140px;
+    padding: 8px;
+    background: var(--bg-2);
+    border: 1px dashed var(--border);
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  .stack-item {
+    background: var(--surface-2);
+    border-left: 2px solid var(--amber);
+    padding: 6px 10px;
+    color: var(--text);
+    animation: stack-push 0.4s ease-out;
+  }
+
+  .stack-item.popping {
+    animation: stack-pop 0.4s ease-in forwards;
+  }
+
+  @keyframes stack-push {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes stack-pop {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(20px); }
+  }
+
+  .stack-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 12px;
+    font-size: 11px;
+  }
+
+  /* IRQ Buttons */
+  .irq-section {
+    margin-top: 20px;
+  }
+
+  .irq-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .irq-btn {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 12px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .irq-btn:hover:not(:disabled) {
+    border-color: var(--cyan);
+    color: var(--text);
+    background: rgba(89, 194, 255, 0.05);
+    transform: translateY(-1px);
+  }
+
+  .irq-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .irq-btn .irq-num {
+    font-size: 10px;
+    color: var(--amber);
+    letter-spacing: 0.1em;
+  }
+
+  .irq-btn .irq-name {
+    color: inherit;
+    font-weight: 500;
+  }
+
+  /* Control buttons */
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .ctrl-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .ctrl-btn:hover {
+    background: var(--surface);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .ctrl-btn.primary {
+    background: var(--amber);
+    color: var(--bg);
+    border-color: var(--amber);
+  }
+
+  .ctrl-btn.primary:hover {
+    background: transparent;
+    color: var(--amber);
+  }
+
+  /* Cycle counter */
+  .counter-row {
+    display: flex;
+    gap: 16px;
+    padding: 10px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .counter-row .v {
+    color: var(--amber);
+    font-weight: 500;
+  }
+
+  /* IRQ Flash overlay */
+  .irq-flash {
+    position: absolute;
+    inset: 0;
+    background: rgba(240, 113, 120, 0.08);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 5;
+  }
+
+  .irq-flash.active {
+    opacity: 1;
+    animation: flash 0.6s ease-out;
+  }
+
+  @keyframes flash {
+    0%, 100% { opacity: 0; }
+    20% { opacity: 1; }
+    50% { opacity: 0.4; }
+    80% { opacity: 0.8; }
+  }
+
+  /* ============ CONTENT GRIDS ============ */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+
+  @media (max-width: 800px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    border-radius: 4px;
+    transition: border-color 0.3s;
+  }
+
+  .card:hover { border-color: var(--border-bright); }
+
+  .card-num {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    margin-bottom: 8px;
+    letter-spacing: 0.1em;
+  }
+
+  .card-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 17px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .card-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  /* Cycle steps */
+  .cycle-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    counter-reset: step;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 24px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+
+  .step:last-child { border-bottom: none; }
+
+  .step-num {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 32px;
+    color: var(--amber);
+    line-height: 1;
+  }
+
+  .step-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .step-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    max-width: 70ch;
+  }
+
+  /* Type matrix */
+  .type-table {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 16px;
+  }
+
+  .type-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  .type-row:last-child { border-bottom: none; }
+
+  .type-row > div {
+    padding: 14px 18px;
+    border-right: 1px solid var(--border);
+  }
+
+  .type-row > div:last-child { border-right: none; }
+
+  .type-row.header {
+    background: var(--bg-2);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .type-row .label { color: var(--cyan); font-weight: 500; }
+  .type-row .desc { color: var(--text-dim); }
+
+  @media (max-width: 800px) {
+    .type-row { grid-template-columns: 1fr; }
+    .type-row > div { border-right: none; border-bottom: 1px dashed var(--border); }
+    .type-row > div:last-child { border-bottom: none; }
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+
+  /* Log */
+  .log-stream {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    height: 88px;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+
+  .log-stream::-webkit-scrollbar { width: 4px; }
+  .log-stream::-webkit-scrollbar-thumb { background: var(--border-bright); }
+  .log-stream::-webkit-scrollbar-track { background: transparent; }
+
+  .log-line { color: var(--text-dim); }
+  .log-line.info { color: var(--cyan); }
+  .log-line.warn { color: var(--amber); }
+  .log-line.err  { color: var(--red); }
+  .log-line.ok   { color: var(--green); }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ================== HEADER ================== -->
+  <header>
+    <div class="badge-row">
+      <div><span class="dot"></span>Task 22 · Operating Systems</div>
+      <div>OS-WEB-PORTFOLIO · V2</div>
+    </div>
+    <h1>inter<span class="accent">rupts</span></h1>
+    <p class="subtitle">A signal that pulls the CPU away from what it's doing,
+      makes it handle something urgent, and then puts it back exactly where it left off.
+      Interactive demonstration of how the hardware/software interrupt cycle actually works.</p>
+  </header>
+
+  <!-- ================== EXPLANATION ================== -->
+  <section>
+    <div class="section-label">01 · The Concept</div>
+    <h2>what is an interrupt?</h2>
+    <p>An <strong>interrupt</strong> is a signal sent to the CPU telling it to stop whatever it
+      is currently executing and switch to a special routine that handles a more urgent or
+      asynchronous event. Without interrupts, the CPU would have to constantly check
+      ("poll") every device to see if it needed attention — wasting cycles. Interrupts flip
+      that around: the device tells the CPU when something needs to happen.</p>
+
+    <p>When an interrupt is raised, the CPU finishes the current instruction, saves its
+      state (program counter, registers, flags) onto the stack, looks up the address of
+      the appropriate handler in the <code>Interrupt Vector Table (IVT)</code>, and jumps to that
+      <strong>Interrupt Service Routine (ISR)</strong>. When the ISR finishes, the CPU restores
+      the saved state and resumes the original program as if nothing happened.</p>
+
+    <p>Interrupts are what let your operating system be responsive. The keyboard, the
+      timer, the disk controller, the network card — every one of them talks to the CPU
+      by raising interrupts. Even system calls like <code>read()</code> and <code>write()</code> are
+      implemented as software interrupts (<code>INT 0x80</code> on x86, <code>SVC</code> on ARM).</p>
+  </section>
+
+  <!-- ================== SIMULATOR ================== -->
+  <section>
+    <div class="section-label">02 · Live Simulation</div>
+    <h2>watch it happen</h2>
+    <p>Below is a simplified CPU running a tiny program. Click any of the four
+      <strong>IRQ</strong> buttons to inject an interrupt and watch the CPU save its state,
+      jump to the ISR, and return to the main program. Try triggering one while the CPU
+      is in the middle of a sequence.</p>
+
+    <div class="sim-wrap">
+      <div class="sim-titlebar">
+        <div class="titlebar-dots"><span></span><span></span><span></span></div>
+        <div>CPU-SIM · 8-BIT · INTERRUPT MODEL</div>
+        <div id="cycleClock">CLK 00000</div>
+      </div>
+
+      <div class="irq-flash" id="irqFlash"></div>
+
+      <div class="sim-grid">
+
+        <!-- LEFT PANEL: Instructions -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Program Memory</div>
+            <div class="status-indicator status-running" id="cpuStatus">Running</div>
+          </div>
+
+          <div class="controls">
+            <button class="ctrl-btn primary" id="btnRun">Pause</button>
+            <button class="ctrl-btn" id="btnStep">Step</button>
+            <button class="ctrl-btn" id="btnReset">Reset</button>
+          </div>
+
+          <div class="instruction-list" id="instrList"></div>
+
+          <div class="log-stream" id="logStream"></div>
+        </div>
+
+        <!-- MIDDLE PANEL: Registers & Stack -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">CPU State</div>
+            <div class="status-indicator status-running" id="modeIndicator">Normal</div>
+          </div>
+
+          <div class="reg-grid" id="regGrid">
+            <div class="reg" id="regPC"><div class="reg-name">PC</div><div class="reg-val">0x1000</div></div>
+            <div class="reg" id="regSP"><div class="reg-name">SP</div><div class="reg-val">0xFFF0</div></div>
+            <div class="reg" id="regR1"><div class="reg-name">R1</div><div class="reg-val">0x00</div></div>
+            <div class="reg" id="regR2"><div class="reg-name">R2</div><div class="reg-val">0x00</div></div>
+            <div class="reg" id="regR3"><div class="reg-name">R3</div><div class="reg-val">0x00</div></div>
+            <div class="reg" id="regFL"><div class="reg-name">FLAGS</div><div class="reg-val">IE</div></div>
+          </div>
+
+          <div class="stack-container">
+            <div class="stack-label">
+              <span>Stack (grows down)</span>
+              <span id="stackDepth">depth: 0</span>
+            </div>
+            <div class="stack" id="stack">
+              <div class="stack-empty">— empty —</div>
+            </div>
+          </div>
+
+          <div class="counter-row" style="margin-top: 16px;">
+            <div>Cycles: <span class="v" id="ctrCycles">0</span></div>
+            <div>IRQs: <span class="v" id="ctrIrqs">0</span></div>
+            <div>ISRs: <span class="v" id="ctrIsrs">0</span></div>
+          </div>
+        </div>
+
+        <!-- RIGHT PANEL: Interrupts -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Interrupt Lines</div>
+            <div class="status-indicator status-running" id="ieIndicator">IE: ON</div>
+          </div>
+
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px; font-family: 'JetBrains Mono', monospace;">
+            Click an IRQ to raise it. Each one points to a different ISR in the vector table.
+          </p>
+
+          <div class="irq-grid">
+            <button class="irq-btn" data-irq="kbd">
+              <span class="irq-num">IRQ 1 · Hardware</span>
+              <span class="irq-name">Keyboard</span>
+            </button>
+            <button class="irq-btn" data-irq="timer">
+              <span class="irq-num">IRQ 0 · Hardware</span>
+              <span class="irq-name">Timer Tick</span>
+            </button>
+            <button class="irq-btn" data-irq="disk">
+              <span class="irq-num">IRQ 14 · Hardware</span>
+              <span class="irq-name">Disk I/O Done</span>
+            </button>
+            <button class="irq-btn" data-irq="divzero">
+              <span class="irq-num">INT 0 · Trap</span>
+              <span class="irq-name">Divide by Zero</span>
+            </button>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <div class="stack-label" style="margin-bottom: 8px;">
+              <span>Interrupt Vector Table</span>
+            </div>
+            <div style="background: var(--bg-2); border: 1px solid var(--border); border-radius: 2px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.9;">
+              <div><span style="color: var(--text-muted);">0x00</span> <span style="color: var(--magenta);">TRAP</span> <span style="color: var(--cyan);">→ 0x2000</span> div_zero</div>
+              <div><span style="color: var(--text-muted);">0x08</span> <span style="color: var(--amber);">IRQ0</span> <span style="color: var(--cyan);">→ 0x2100</span> timer_isr</div>
+              <div><span style="color: var(--text-muted);">0x0C</span> <span style="color: var(--amber);">IRQ1</span> <span style="color: var(--cyan);">→ 0x2200</span> kbd_isr</div>
+              <div><span style="color: var(--text-muted);">0x44</span> <span style="color: var(--amber);">IRQ14</span> <span style="color: var(--cyan);">→ 0x2300</span> disk_isr</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== TYPES ================== -->
+  <section>
+    <div class="section-label">03 · Taxonomy</div>
+    <h2>types of interrupts</h2>
+    <p>Interrupts fall into two broad families based on where they originate. Hardware
+      interrupts come from outside the CPU and are <strong>asynchronous</strong> — they can
+      happen at any moment. Software interrupts come from instructions and are
+      <strong>synchronous</strong> — they happen at a known point in the running program.</p>
+
+    <div class="type-table">
+      <div class="type-row header">
+        <div>Category</div><div>Source</div><div>Examples</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Hardware (Maskable)</div>
+        <div class="desc">External devices, asynchronous, can be disabled via IF/IE flag</div>
+        <div class="desc">Keyboard, mouse, network card, disk controller</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Hardware (NMI)</div>
+        <div class="desc">Critical hardware events, cannot be masked</div>
+        <div class="desc">Memory parity error, power failure, watchdog</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Software / Trap</div>
+        <div class="desc">Issued by a program via an instruction</div>
+        <div class="desc">System calls (INT 0x80, SYSCALL, SVC)</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Exception / Fault</div>
+        <div class="desc">CPU detects an error during execution</div>
+        <div class="desc">Divide by zero, page fault, invalid opcode</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== CYCLE ================== -->
+  <section>
+    <div class="section-label">04 · The Cycle</div>
+    <h2>how an interrupt occurs</h2>
+    <p>Every interrupt — whether it comes from a key press or a system call — follows the
+      same fundamental sequence. The exact opcodes differ between architectures, but
+      conceptually the steps below are universal.</p>
+
+    <div class="cycle-steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div>
+          <div class="step-title">Device raises an IRQ line</div>
+          <div class="step-desc">Hardware asserts an electrical signal on its interrupt line
+            (e.g., the keyboard controller pulls IRQ1 high). For software interrupts, a running
+            instruction triggers it directly.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div>
+          <div class="step-title">CPU finishes the current instruction</div>
+          <div class="step-desc">The CPU does not stop mid-instruction. It completes the
+            instruction it is currently executing to leave the machine in a consistent state.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div>
+          <div class="step-title">CPU acknowledges and disables interrupts</div>
+          <div class="step-desc">The CPU clears the interrupt-enable flag so that the ISR
+            itself is not interrupted by another maskable interrupt while it is starting up.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div>
+          <div class="step-title">Save state onto the stack</div>
+          <div class="step-desc">The program counter (PC) and processor status (flags) are
+            pushed onto the kernel stack. On many architectures the ISR pushes additional
+            registers it intends to use.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div>
+          <div class="step-title">Look up the ISR address in the IVT</div>
+          <div class="step-desc">The CPU uses the interrupt number as an index into the
+            Interrupt Vector Table, which holds the entry-point address of every ISR.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">06</div>
+        <div>
+          <div class="step-title">Jump to and execute the ISR</div>
+          <div class="step-desc">Control transfers to the handler. The ISR services the
+            device (reads the key, copies the disk buffer, advances the timer tick, etc.) and
+            usually signals "interrupt handled" to the interrupt controller.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">07</div>
+        <div>
+          <div class="step-title">IRET — return from interrupt</div>
+          <div class="step-desc">The ISR executes a special return instruction (<code>IRET</code>,
+            <code>RTI</code>, <code>ERET</code>). The CPU pops the saved PC and flags back off the
+            stack, re-enables interrupts, and resumes the interrupted program — which never
+            knew anything happened.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== WHY ================== -->
+  <section>
+    <div class="section-label">05 · Why It Matters</div>
+    <h2>role in the OS</h2>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-num">A</div>
+        <div class="card-title">Multitasking exists because of timer interrupts</div>
+        <div class="card-desc">The scheduler runs because a timer interrupt forces the CPU
+          out of the currently running process every few milliseconds. Without it, a process
+          that never yields could hog the machine forever.</div>
+      </div>
+      <div class="card">
+        <div class="card-num">B</div>
+        <div class="card-title">I/O is efficient because of device interrupts</div>
+        <div class="card-desc">Instead of the CPU polling the disk every cycle to ask
+          "are you done yet?", the disk raises an interrupt when its transfer completes,
+          letting the CPU do real work in the meantime.</div>
+      </div>
+      <div class="card">
+        <div class="card-num">C</div>
+        <div class="card-title">System calls are software interrupts</div>
+        <div class="card-desc">When a user-mode program calls <code>read()</code>, it executes
+          a trap instruction that interrupts the CPU into kernel mode, where the syscall
+          handler can safely access privileged resources.</div>
+      </div>
+      <div class="card">
+        <div class="card-num">D</div>
+        <div class="card-title">Exceptions are how the kernel takes over on errors</div>
+        <div class="card-desc">A divide-by-zero, an invalid memory access, or a page fault
+          all raise exceptions. The kernel catches them, decides what to do, and either
+          recovers (page fault → load the page) or kills the offending process.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    OS WEB PORTFOLIO · TASK 22 · INTERRUPTS &nbsp;·&nbsp; SINGLE FILE · HTML + CSS + JS
+  </footer>
+
+</main>
+
+<script>
+/* ============================================================
+   INTERRUPT SIMULATOR
+   Tiny state machine that emulates a CPU running a main program,
+   then handling interrupts by saving state, jumping to an ISR,
+   and returning via IRET.
+   ============================================================ */
+
+const MAIN_PROGRAM = [
+  { addr: 0x1000, op: 'MOV',   arg: 'R1, #5'        },
+  { addr: 0x1004, op: 'MOV',   arg: 'R2, #3'        },
+  { addr: 0x1008, op: 'ADD',   arg: 'R1, R2'        },
+  { addr: 0x100C, op: 'STORE', arg: 'R1, [0x2000]'  },
+  { addr: 0x1010, op: 'LOAD',  arg: 'R3, [0x2004]'  },
+  { addr: 0x1014, op: 'SUB',   arg: 'R3, R1'        },
+  { addr: 0x1018, op: 'CMP',   arg: 'R3, #0'        },
+  { addr: 0x101C, op: 'JMP',   arg: '0x1000'        }, // loops back
+];
+
+const ISRS = {
+  kbd: {
+    label: 'kbd_isr',
+    base: 0x2200,
+    color: 'cyan',
+    log: 'Servicing keyboard: reading scancode 0x1E (key "A")',
+    instr: [
+      { addr: 0x2200, op: 'PUSH',  arg: 'R1'           },
+      { addr: 0x2204, op: 'IN',    arg: 'R1, KBD_PORT' },
+      { addr: 0x2208, op: 'STORE', arg: 'R1, [BUFF]'   },
+      { addr: 0x220C, op: 'POP',   arg: 'R1'           },
+      { addr: 0x2210, op: 'IRET',  arg: ''             },
+    ],
+  },
+  timer: {
+    label: 'timer_isr',
+    base: 0x2100,
+    color: 'cyan',
+    log: 'Timer tick: incrementing system clock & scheduler check',
+    instr: [
+      { addr: 0x2100, op: 'PUSH',  arg: 'R1'            },
+      { addr: 0x2104, op: 'LOAD',  arg: 'R1, [TICKS]'   },
+      { addr: 0x2108, op: 'ADD',   arg: 'R1, #1'        },
+      { addr: 0x210C, op: 'STORE', arg: 'R1, [TICKS]'   },
+      { addr: 0x2110, op: 'CALL',  arg: 'schedule'      },
+      { addr: 0x2114, op: 'POP',   arg: 'R1'            },
+      { addr: 0x2118, op: 'IRET',  arg: ''              },
+    ],
+  },
+  disk: {
+    label: 'disk_isr',
+    base: 0x2300,
+    color: 'cyan',
+    log: 'Disk DMA complete: copying sector to process buffer',
+    instr: [
+      { addr: 0x2300, op: 'PUSH',  arg: 'R1, R2'        },
+      { addr: 0x2304, op: 'LOAD',  arg: 'R1, [DMA_PTR]' },
+      { addr: 0x2308, op: 'LOAD',  arg: 'R2, [BUF_PTR]' },
+      { addr: 0x230C, op: 'CALL',  arg: 'memcpy_512'    },
+      { addr: 0x2310, op: 'OUT',   arg: 'EOI, PIC'      },
+      { addr: 0x2314, op: 'POP',   arg: 'R1, R2'        },
+      { addr: 0x2318, op: 'IRET',  arg: ''              },
+    ],
+  },
+  divzero: {
+    label: 'div_zero',
+    base: 0x2000,
+    color: 'red',
+    log: 'TRAP! Divide-by-zero exception · raising SIGFPE',
+    instr: [
+      { addr: 0x2000, op: 'PUSH',  arg: 'PC, FLAGS'     },
+      { addr: 0x2004, op: 'CALL',  arg: 'print_error'   },
+      { addr: 0x2008, op: 'CALL',  arg: 'raise_sigfpe'  },
+      { addr: 0x200C, op: 'CALL',  arg: 'kill_process'  },
+      { addr: 0x2010, op: 'IRET',  arg: ''              },
+    ],
+  },
+};
+
+/* ===== State ===== */
+const S = {
+  mode: 'normal',      // normal | saving | isr | restoring
+  running: true,
+  pcIndex: 0,          // index into MAIN_PROGRAM
+  isrIndex: 0,         // index into current ISR
+  currentIsrKey: null,
+  pendingIrq: null,    // queued interrupt key
+  ie: true,            // interrupt-enable flag
+  stack: [],
+  regs: { R1: 0x00, R2: 0x00, R3: 0x00 },
+  saveSteps: 0,        // animation steps for save/restore
+  cycles: 0,
+  irqCount: 0,
+  isrCount: 0,
+};
+
+const TICK_MS = 650;
+
+/* ===== Elements ===== */
+const $ = id => document.getElementById(id);
+const instrList   = $('instrList');
+const stackEl     = $('stack');
+const stackDepth  = $('stackDepth');
+const cpuStatus   = $('cpuStatus');
+const modeInd     = $('modeIndicator');
+const ieInd       = $('ieIndicator');
+const irqFlash    = $('irqFlash');
+const cycleClock  = $('cycleClock');
+const logStream   = $('logStream');
+
+/* ===== Helpers ===== */
+function hex(n, w = 4) { return '0x' + n.toString(16).toUpperCase().padStart(w, '0'); }
+
+function setStatus(text, cls) {
+  cpuStatus.textContent = text;
+  cpuStatus.className = 'status-indicator ' + cls;
+}
+
+function setMode(text, cls) {
+  modeInd.textContent = text;
+  modeInd.className = 'status-indicator ' + cls;
+}
+
+function setIE(on) {
+  S.ie = on;
+  ieInd.textContent = 'IE: ' + (on ? 'ON' : 'OFF');
+  ieInd.className = 'status-indicator ' + (on ? 'status-running' : 'status-halted');
+}
+
+function log(msg, cls = '') {
+  const line = document.createElement('div');
+  line.className = 'log-line ' + cls;
+  line.textContent = '[' + S.cycles.toString().padStart(4, '0') + '] ' + msg;
+  logStream.appendChild(line);
+  logStream.scrollTop = logStream.scrollHeight;
+  // Trim
+  while (logStream.children.length > 60) logStream.removeChild(logStream.firstChild);
+}
+
+function renderInstructions() {
+  instrList.innerHTML = '';
+  const frag = document.createDocumentFragment();
+
+  // Main program
+  MAIN_PROGRAM.forEach((ins, i) => {
+    const line = document.createElement('div');
+    line.className = 'instr-line';
+    if (S.mode === 'normal' && i === S.pcIndex) line.classList.add('active');
+    line.innerHTML = `
+      <span class="instr-addr">${hex(ins.addr)}</span>
+      <span class="instr-op">${ins.op}</span>
+      <span class="instr-arg">${ins.arg}</span>`;
+    frag.appendChild(line);
+  });
+
+  // ISR section (if active)
+  if (S.mode === 'isr' && S.currentIsrKey) {
+    const divider = document.createElement('div');
+    divider.className = 'program-divider';
+    divider.textContent = '── ISR · ' + ISRS[S.currentIsrKey].label + ' ──';
+    frag.appendChild(divider);
+
+    ISRS[S.currentIsrKey].instr.forEach((ins, i) => {
+      const line = document.createElement('div');
+      line.className = 'instr-line';
+      if (i === S.isrIndex) line.classList.add('isr-active');
+      line.innerHTML = `
+        <span class="instr-addr">${hex(ins.addr)}</span>
+        <span class="instr-op">${ins.op}</span>
+        <span class="instr-arg">${ins.arg}</span>`;
+      frag.appendChild(line);
+    });
+  }
+
+  instrList.appendChild(frag);
+}
+
+function renderRegisters() {
+  const pc = S.mode === 'isr'
+    ? ISRS[S.currentIsrKey].instr[S.isrIndex].addr
+    : MAIN_PROGRAM[S.pcIndex].addr;
+
+  $('regPC').querySelector('.reg-val').textContent = hex(pc);
+  $('regSP').querySelector('.reg-val').textContent = hex(0xFFF0 - S.stack.length * 4);
+  $('regR1').querySelector('.reg-val').textContent = hex(S.regs.R1, 2);
+  $('regR2').querySelector('.reg-val').textContent = hex(S.regs.R2, 2);
+  $('regR3').querySelector('.reg-val').textContent = hex(S.regs.R3, 2);
+  $('regFL').querySelector('.reg-val').textContent = S.ie ? 'IE' : '—';
+}
+
+function renderStack() {
+  stackEl.innerHTML = '';
+  if (S.stack.length === 0) {
+    stackEl.innerHTML = '<div class="stack-empty">— empty —</div>';
+  } else {
+    S.stack.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'stack-item';
+      div.textContent = item;
+      stackEl.appendChild(div);
+    });
+  }
+  stackDepth.textContent = 'depth: ' + S.stack.length;
+}
+
+function renderCounters() {
+  $('ctrCycles').textContent = S.cycles;
+  $('ctrIrqs').textContent = S.irqCount;
+  $('ctrIsrs').textContent = S.isrCount;
+  cycleClock.textContent = 'CLK ' + S.cycles.toString().padStart(5, '0');
+}
+
+function render() {
+  renderInstructions();
+  renderRegisters();
+  renderStack();
+  renderCounters();
+}
+
+/* ===== Execution simulation ===== */
+function executeMainInstr() {
+  const ins = MAIN_PROGRAM[S.pcIndex];
+  // Simulate effects on registers
+  if (ins.op === 'MOV' && ins.arg.startsWith('R1')) S.regs.R1 = 0x05;
+  if (ins.op === 'MOV' && ins.arg.startsWith('R2')) S.regs.R2 = 0x03;
+  if (ins.op === 'ADD') S.regs.R1 = (S.regs.R1 + S.regs.R2) & 0xFF;
+  if (ins.op === 'LOAD' && ins.arg.startsWith('R3')) S.regs.R3 = 0x10;
+  if (ins.op === 'SUB' && ins.arg.startsWith('R3')) S.regs.R3 = (S.regs.R3 - S.regs.R1) & 0xFF;
+  log('exec ' + hex(ins.addr) + ' ' + ins.op + ' ' + ins.arg);
+  S.pcIndex = (S.pcIndex + 1) % MAIN_PROGRAM.length;
+}
+
+function executeIsrInstr() {
+  const isr = ISRS[S.currentIsrKey];
+  const ins = isr.instr[S.isrIndex];
+  log('  isr ' + hex(ins.addr) + ' ' + ins.op + ' ' + ins.arg, 'info');
+
+  if (ins.op === 'IRET') {
+    // End of ISR — trigger restore phase
+    S.mode = 'restoring';
+    S.saveSteps = 0;
+    setMode('Restoring', 'status-saving');
+    setStatus('Restoring', 'status-saving');
+    log('IRET — restoring saved state from stack', 'warn');
+    return;
+  }
+  S.isrIndex++;
+}
+
+function startInterrupt(key) {
+  if (S.mode !== 'normal') return; // queued already (we keep it simple)
+  if (!S.ie && key !== 'divzero') return; // masked
+  S.pendingIrq = key;
+  S.irqCount++;
+  flashIrq();
+  log('IRQ raised: ' + ISRS[key].label, 'err');
+
+  // Transition to saving state next tick
+  S.mode = 'saving';
+  S.saveSteps = 0;
+  setStatus('Halted', 'status-halted');
+  setMode('Saving state', 'status-saving');
+}
+
+function flashIrq() {
+  irqFlash.classList.remove('active');
+  // force reflow
+  void irqFlash.offsetWidth;
+  irqFlash.classList.add('active');
+}
+
+/* ===== Main tick ===== */
+function tick() {
+  S.cycles++;
+
+  if (S.mode === 'normal') {
+    executeMainInstr();
+  }
+  else if (S.mode === 'saving') {
+    // Push PC, then FLAGS, then disable IE — over 3 ticks
+    if (S.saveSteps === 0) {
+      S.stack.push('PC = ' + hex(MAIN_PROGRAM[S.pcIndex].addr));
+      log('push PC → stack', 'warn');
+    } else if (S.saveSteps === 1) {
+      S.stack.push('FLAGS = IE');
+      log('push FLAGS → stack', 'warn');
+    } else if (S.saveSteps === 2) {
+      setIE(false);
+      log('IE cleared · disabling further IRQs', 'warn');
+      S.stack.push('IVT[' + ISRS[S.pendingIrq].label + ']');
+      log('lookup IVT → ' + hex(ISRS[S.pendingIrq].base), 'info');
+    } else {
+      // Enter ISR
+      S.currentIsrKey = S.pendingIrq;
+      S.pendingIrq = null;
+      S.isrIndex = 0;
+      S.mode = 'isr';
+      S.isrCount++;
+      setStatus('In ISR', 'status-isr');
+      setMode('Executing ISR', 'status-isr');
+      log('→ ' + ISRS[S.currentIsrKey].log, 'info');
+      render();
+      return;
+    }
+    S.saveSteps++;
+  }
+  else if (S.mode === 'isr') {
+    executeIsrInstr();
+  }
+  else if (S.mode === 'restoring') {
+    if (S.stack.length > 0) {
+      const item = S.stack.pop();
+      log('pop ' + item, 'warn');
+      if (item.startsWith('FLAGS')) {
+        setIE(true);
+        log('IE restored · interrupts re-enabled', 'ok');
+      }
+    } else {
+      S.mode = 'normal';
+      S.currentIsrKey = null;
+      setStatus('Running', 'status-running');
+      setMode('Normal', 'status-running');
+      log('resumed main program at ' + hex(MAIN_PROGRAM[S.pcIndex].addr), 'ok');
+    }
+  }
+
+  render();
+}
+
+/* ===== Controls ===== */
+let timer = null;
+function start() {
+  if (timer) return;
+  S.running = true;
+  $('btnRun').textContent = 'Pause';
+  setStatus(S.mode === 'isr' ? 'In ISR' : 'Running',
+            S.mode === 'isr' ? 'status-isr' : 'status-running');
+  timer = setInterval(tick, TICK_MS);
+}
+function stop() {
+  if (!timer) return;
+  clearInterval(timer);
+  timer = null;
+  S.running = false;
+  $('btnRun').textContent = 'Run';
+  setStatus('Paused', 'status-halted');
+}
+function toggleRun() { S.running ? stop() : start(); }
+
+function reset() {
+  stop();
+  S.mode = 'normal';
+  S.pcIndex = 0;
+  S.isrIndex = 0;
+  S.currentIsrKey = null;
+  S.pendingIrq = null;
+  S.ie = true;
+  S.stack = [];
+  S.regs = { R1: 0x00, R2: 0x00, R3: 0x00 };
+  S.saveSteps = 0;
+  S.cycles = 0;
+  S.irqCount = 0;
+  S.isrCount = 0;
+  logStream.innerHTML = '';
+  setIE(true);
+  setStatus('Running', 'status-running');
+  setMode('Normal', 'status-running');
+  log('system reset · CPU online', 'ok');
+  render();
+  start();
+}
+
+$('btnRun').addEventListener('click', toggleRun);
+$('btnStep').addEventListener('click', () => { if (S.running) stop(); tick(); });
+$('btnReset').addEventListener('click', reset);
+
+document.querySelectorAll('.irq-btn').forEach(btn => {
+  btn.addEventListener('click', () => startInterrupt(btn.dataset.irq));
+});
+
+/* ===== Init ===== */
+log('system online · loading IVT', 'ok');
+log('main program loaded at 0x1000', 'ok');
+render();
+start();
+</script>
+</body>
+</html>

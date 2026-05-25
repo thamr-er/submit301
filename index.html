@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Operating Systems — Interactive Web Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:       #FAFAF8;
+    --navy:     #0F1F3D;
+    --text:     #1C1C2E;
+    --muted:    #6B7280;
+    --gold:     #B8860B;
+    --border:   #DDD9D1;
+    --hover:    #F0EDE6;
+    --cpu:      #1D4ED8;
+    --proc:     #B45309;
+    --thread:   #047857;
+    --arch:     #6D28D9;
+    --lab:      #B91C1C;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--navy);
+    position: relative;
+    overflow: hidden;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--gold) 40%, transparent 100%);
+  }
+
+  .hdr-glow {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 88% 50%, rgba(184,134,11,0.07) 0%, transparent 65%),
+      radial-gradient(ellipse at 12% 80%, rgba(29,78,216,0.09) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .hdr-inner {
+    position: relative;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 3.8rem 3rem 3.2rem;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.4rem;
+  }
+  .eyebrow-bar { width: 22px; height: 1px; background: var(--gold); }
+  .eyebrow-txt {
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.3rem, 4.5vw, 3.9rem);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.3rem;
+  }
+
+  .hdr-desc {
+    font-size: 0.875rem;
+    color: rgba(255,255,255,0.48);
+    max-width: 560px;
+    line-height: 1.8;
+    font-weight: 300;
+  }
+
+  .hdr-foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 2.8rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .stats { display: flex; gap: 3.5rem; }
+  .stat-n {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .stat-l {
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin-top: 0.3rem;
+  }
+  .hdr-ver {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.18);
+  }
+
+  /* ── PAGE BODY ── */
+  .page {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 3rem 7rem;
+  }
+
+  /* ── CATEGORY NAV ── */
+  .cat-nav {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3.5rem;
+  }
+
+  .cat-link {
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 1.15rem 1.5rem;
+    color: var(--muted);
+    border-bottom: 2.5px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+
+  .cat-link[data-c="cpu"]:hover    { color:var(--cpu);    border-color:var(--cpu);    }
+  .cat-link[data-c="proc"]:hover   { color:var(--proc);   border-color:var(--proc);   }
+  .cat-link[data-c="thread"]:hover { color:var(--thread); border-color:var(--thread); }
+  .cat-link[data-c="arch"]:hover   { color:var(--arch);   border-color:var(--arch);   }
+  .cat-link[data-c="lab"]:hover    { color:var(--lab);    border-color:var(--lab);    }
+
+  /* ── SECTION ── */
+  .section {
+    margin-bottom: 2.8rem;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeUp 0.45s ease forwards;
+  }
+  .section:nth-child(2){animation-delay:0.06s}
+  .section:nth-child(3){animation-delay:0.12s}
+  .section:nth-child(4){animation-delay:0.18s}
+  .section:nth-child(5){animation-delay:0.24s}
+  .section:nth-child(6){animation-delay:0.30s}
+  @keyframes fadeUp { to { opacity:1; transform:translateY(0); } }
+
+  .sec-hdr {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 2px solid var(--border);
+  }
+  .sec-ord {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    width: 2rem;
+    flex-shrink: 0;
+  }
+  .sec-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.08rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .sec-badge {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.22rem 0.7rem;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  [data-s="cpu"]    .sec-badge { color:var(--cpu);    border:1px solid rgba(29,78,216,.28);    background:rgba(29,78,216,.05);    }
+  [data-s="proc"]   .sec-badge { color:var(--proc);   border:1px solid rgba(180,83,9,.28);     background:rgba(180,83,9,.05);     }
+  [data-s="thread"] .sec-badge { color:var(--thread); border:1px solid rgba(4,120,87,.28);     background:rgba(4,120,87,.05);     }
+  [data-s="arch"]   .sec-badge { color:var(--arch);   border:1px solid rgba(109,40,217,.28);   background:rgba(109,40,217,.05);   }
+  [data-s="lab"]    .sec-badge { color:var(--lab);    border:1px solid rgba(185,28,28,.28);    background:rgba(185,28,28,.05);    }
+
+  /* ── ENTRY ROWS ── */
+  .entry-list { list-style: none; }
+
+  .entry {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr auto;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 0.75rem 1rem 1.1rem;
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px solid var(--border);
+    border-left: 3px solid transparent;
+    transition: background 0.15s, border-color 0.15s, padding-left 0.15s;
+  }
+
+  .entry:hover { background: var(--hover); padding-left: 1.45rem; }
+
+  [data-s="cpu"]    .entry:hover { border-color:var(--cpu);    }
+  [data-s="proc"]   .entry:hover { border-color:var(--proc);   }
+  [data-s="thread"] .entry:hover { border-color:var(--thread); }
+  [data-s="arch"]   .entry:hover { border-color:var(--arch);   }
+  [data-s="lab"]    .entry:hover { border-color:var(--lab);    }
+
+  .e-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+  .e-topic { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+  .e-student { font-size: 0.78rem; color: var(--muted); font-weight: 300; text-align: right; white-space: nowrap; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.6rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  /* EASTER EGG trigger — barely visible */
+  #egg {
+    opacity: 0.03;
+    cursor: default;
+    user-select: none;
+    font-size: 0.55rem;
+    color: var(--bg);
+    transition: opacity 0.6s;
+  }
+  #egg:hover { opacity: 0.14; }
+
+  /* ── DRAGON CANVAS ── */
+  #dragon-canvas {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    display: none;
+  }
+
+  /* ── BURN ANIMATION ── */
+  .burning {
+    animation: burnOut 2.4s ease-in forwards !important;
+    pointer-events: none;
+  }
+  @keyframes burnOut {
+    0%   { filter:none; opacity:1; transform:none; }
+    18%  { filter:brightness(2.8) saturate(4) hue-rotate(-8deg); }
+    38%  { filter:brightness(2) saturate(5) hue-rotate(-30deg); }
+    58%  { filter:brightness(1.1) saturate(4) hue-rotate(-52deg) sepia(.7); }
+    78%  { filter:brightness(0.5) sepia(1) hue-rotate(-70deg) blur(3px); opacity:.75; }
+    100% { filter:brightness(0) blur(16px); opacity:0; transform:scale(0.98) translateY(8px); }
+  }
+
+  /* ── END OVERLAY ── */
+  #dragon-end {
+    display: none;
+    position: fixed; inset: 0;
+    background: #000;
+    z-index: 9998;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.6rem;
+  }
+  #dragon-end.show { display: flex; }
+  .de-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 4vw, 2.9rem);
+    color: #FF4500;
+    text-shadow: 0 0 40px #FF4500, 0 0 90px rgba(255,69,0,.35);
+    text-align: center;
+  }
+  .de-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    color: #3a3a3a;
+    letter-spacing: 0.12em;
+  }
+  #reboot-btn {
+    margin-top: 0.5rem;
+    padding: 0.78rem 2.3rem;
+    background: transparent;
+    border: 1px solid #FF4500;
+    color: #FF4500;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    transition: all 0.2s;
+  }
+  #reboot-btn:hover { background: #FF4500; color: #000; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .page { padding: 0 1.25rem 4rem; }
+    .hdr-inner { padding: 2.5rem 1.5rem 2rem; }
+    .stats { gap: 2rem; }
+    .e-student { display: none; }
+    .entry { grid-template-columns: 3rem 1fr; }
+    .cat-link { padding: 0.9rem 1rem; font-size: 0.72rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="hdr-glow"></div>
+  <div class="hdr-inner">
+    <div class="eyebrow">
+      <span class="eyebrow-bar"></span>
+      <span class="eyebrow-txt">Computer Science · Operating Systems · Academic Year 2025–2026</span>
+    </div>
+    <h1>Interactive Web<br />Portfolio</h1>
+    <p class="hdr-desc">
+      A collaborative capstone project. Each page is a standalone, interactive demonstration
+      of a core Operating Systems concept or POSIX system call, individually designed and
+      implemented by a student of the class.
+    </p>
+    <div class="hdr-foot">
+      <div class="stats">
+        <div><div class="stat-n">29</div><div class="stat-l">Students</div></div>
+        <div><div class="stat-n">5</div><div class="stat-l">Categories</div></div>
+        <div><div class="stat-n">29</div><div class="stat-l">Demonstrations</div></div>
+      </div>
+      <span class="hdr-ver">v1.0.0 · May 2026</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ PAGE ═══ -->
+<div class="page">
+
+  <nav class="cat-nav">
+    <a class="cat-link" href="#cpu"    data-c="cpu">CPU Scheduling</a>
+    <a class="cat-link" href="#proc"   data-c="proc">Processes &amp; Memory</a>
+    <a class="cat-link" href="#thread" data-c="thread">Threading &amp; Concurrency</a>
+    <a class="cat-link" href="#arch"   data-c="arch">Architecture</a>
+    <a class="cat-link" href="#lab"    data-c="lab">Lab &amp; System Calls</a>
+  </nav>
+
+  <!-- CPU SCHEDULING -->
+  <section class="section" id="cpu" data-s="cpu">
+    <div class="sec-hdr">
+      <span class="sec-ord">01</span>
+      <span class="sec-title">CPU Scheduling</span>
+      <span class="sec-badge">Scheduling</span>
+    </div>
+    <ul class="entry-list">
+      <li><a class="entry" href="task1.html"><span class="e-num">01</span><span class="e-topic">FCFS CPU Scheduler</span><span class="e-student">Dania Abdullah Hama Saleh</span></a></li>
+      <li><a class="entry" href="task2.html"><span class="e-num">02</span><span class="e-topic">SJF CPU Scheduler</span><span class="e-student">Mahmood Abdulsalam Hasan</span></a></li>
+      <li><a class="entry" href="task3.html"><span class="e-num">03</span><span class="e-topic">Priority Scheduling (Preemptive)</span><span class="e-student">Sahand Amir Ibrahim</span></a></li>
+      <li><a class="entry" href="task4.html"><span class="e-num">04</span><span class="e-topic">Priority Scheduling (Non-Preemptive)</span><span class="e-student">Aya Ardalan Hussein</span></a></li>
+      <li><a class="entry" href="task5.html"><span class="e-num">05</span><span class="e-topic">Preemptive vs. Non-Preemptive Scheduling</span><span class="e-student">Thamer Ayad Erzaij</span></a></li>
+    </ul>
+  </section>
+
+  <!-- PROCESSES, MEMORY & SYNC -->
+  <section class="section" id="proc" data-s="proc">
+    <div class="sec-hdr">
+      <span class="sec-ord">02</span>
+      <span class="sec-title">Processes, Memory &amp; Synchronization</span>
+      <span class="sec-badge">Processes</span>
+    </div>
+    <ul class="entry-list">
+      <li><a class="entry" href="task6.html"> <span class="e-num">06</span><span class="e-topic">Process States (Ready, Running, Waiting…)</span><span class="e-student">Dldar Bahri Fato</span></a></li>
+      <li><a class="entry" href="task7.html"> <span class="e-num">07</span><span class="e-topic">Process Control Block (PCB)</span><span class="e-student">Shatu Bakhtiar Saeed</span></a></li>
+      <li><a class="entry" href="task8.html"> <span class="e-num">08</span><span class="e-topic">Context Switching</span><span class="e-student">Abdulla Bestoon Karim</span></a></li>
+      <li><a class="entry" href="task9.html"> <span class="e-num">09</span><span class="e-topic">IPC: Shared Memory Model</span><span class="e-student">Omar Emad Samad</span></a></li>
+      <li><a class="entry" href="task10.html"><span class="e-num">10</span><span class="e-topic">IPC: Message Passing Model</span><span class="e-student">Milad Fareed Elia</span></a></li>
+      <li><a class="entry" href="task11.html"><span class="e-num">11</span><span class="e-topic">Direct Memory Access (DMA)</span><span class="e-student">Mahmood Hadi Mahdi</span></a></li>
+      <li><a class="entry" href="task12.html"><span class="e-num">12</span><span class="e-topic">Linker and Loader</span><span class="e-student">Dilan Hemn Fattah</span></a></li>
+      <li><a class="entry" href="task13.html"><span class="e-num">13</span><span class="e-topic">Deadlocks — Occurrence &amp; Prevention</span><span class="e-student">Lalan Hoshmand Najmaddin</span></a></li>
+      <li><a class="entry" href="task14.html"><span class="e-num">14</span><span class="e-topic">Virtual Memory and Paging</span><span class="e-student">Maad Kamal Mawlod</span></a></li>
+    </ul>
+  </section>
+
+  <!-- THREADING & CONCURRENCY -->
+  <section class="section" id="thread" data-s="thread">
+    <div class="sec-hdr">
+      <span class="sec-ord">03</span>
+      <span class="sec-title">Threading &amp; Concurrency</span>
+      <span class="sec-badge">Threads</span>
+    </div>
+    <ul class="entry-list">
+      <li><a class="entry" href="task15.html"><span class="e-num">15</span><span class="e-topic">The Concept of Threading</span><span class="e-student">Danya Kawkaz Hassan</span></a></li>
+      <li><a class="entry" href="task16_paging/index.html"><span class="e-num">16</span><span class="e-topic">The Concept of Parallelism</span><span class="e-student">Mahmood Kosrat Akram</span></a></li>
+      <li><a class="entry" href="task17.html"><span class="e-num">17</span><span class="e-topic">The Concept of Concurrency</span><span class="e-student">Nancy Louis Butrus</span></a></li>
+      <li><a class="entry" href="task19.html"><span class="e-num">19</span><span class="e-topic">When is Multithreading Beneficial?</span><span class="e-student">Rekar Muhammed Abdulla</span></a></li>
+    </ul>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section class="section" id="arch" data-s="arch">
+    <div class="sec-hdr">
+      <span class="sec-ord">04</span>
+      <span class="sec-title">Architecture &amp; Core Concepts</span>
+      <span class="sec-badge">Architecture</span>
+    </div>
+    <ul class="entry-list">
+      <li><a class="entry" href="task20_paging/bridge.html"><span class="e-num">20</span><span class="e-topic">OS as a Bridge: Hardware &amp; Software</span><span class="e-student">Ara Omed Mardan</span></a></li>
+      <li><a class="entry" href="task21.html"><span class="e-num">21</span><span class="e-topic">User Mode vs. Kernel Mode</span><span class="e-student">Zaid Omer Ahmed</span></a></li>
+      <li><a class="entry" href="task22.html"><span class="e-num">22</span><span class="e-topic">Interrupts — How They Occur</span><span class="e-student">Yad Sabah Habeeb</span></a></li>
+    </ul>
+  </section>
+
+  <!-- LAB & SYSTEM CALLS -->
+  <section class="section" id="lab" data-s="lab">
+    <div class="sec-hdr">
+      <span class="sec-ord">05</span>
+      <span class="sec-title">Lab &amp; System Calls</span>
+      <span class="sec-badge">syscalls</span>
+    </div>
+    <ul class="entry-list">
+      <li><a class="entry" href="task23.html"><span class="e-num">23</span><span class="e-topic">lseek()</span><span class="e-student">Mohammed Shazad Hassan</span></a></li>
+      <li><a class="entry" href="task24.html"><span class="e-num">24</span><span class="e-topic">fork()</span><span class="e-student">Shanel Sherzad Samaan</span></a></li>
+      <li><a class="entry" href="task25.html"><span class="e-num">25</span><span class="e-topic">wait()</span><span class="e-student">Salar Sulaiman Abdulwahab</span></a></li>
+      <li><a class="entry" href="task26.html"><span class="e-num">26</span><span class="e-topic">exit()</span><span class="e-student">Resa Talaat Lateef</span></a></li>
+      <li><a class="entry" href="task27.html"><span class="e-num">27</span><span class="e-topic">sleep()</span><span class="e-student">Meron Thamr Sliwa</span></a></li>
+      <li><a class="entry" href="task28.html"><span class="e-num">28</span><span class="e-topic">dup() and dup2()</span><span class="e-student">Zhir Twana Qader</span></a></li>
+      <li><a class="entry" href="task30.html"><span class="e-num">30</span><span class="e-topic">write()</span><span class="e-student">Rozh Zhila Zahir</span></a></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Operating Systems Interactive Portfolio · 2025–2026</span>
+    <span id="egg">🐉</span>
+    <span>29 student demonstrations across 5 categories</span>
+  </footer>
+
+</div><!-- /page -->
+
+<!-- DRAGON END SCREEN -->
+<div id="dragon-end">
+  <p class="de-title">🔥 The Dragon Has Spoken 🔥</p>
+  <p class="de-sub">process.exit(SCORCHED)</p>
+  <button id="reboot-btn" onclick="location.reload()">$ reboot --force</button>
+</div>
+
+<canvas id="dragon-canvas"></canvas>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  EASTER EGG — THE DRAGON
+//  Click the tiny 🐉 in the footer to summon it.
+// ══════════════════════════════════════════════════════
+
+const eggEl  = document.getElementById('egg');
+const canvas = document.getElementById('dragon-canvas');
+const endDiv = document.getElementById('dragon-end');
+let   eggFired = false;
+
+eggEl.addEventListener('click', () => {
+  if (eggFired) return;
+  eggFired = true;
+  launchDragon();
+});
+
+function launchDragon() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+
+  // ── Particle system ─────────────────────────────────
+  const particles = [];
+
+  function emitFire(mx, my) {
+    for (let i = 0; i < 13; i++) {
+      const spread = (Math.random() - 0.5) * 0.58;
+      const speed  = Math.random() * 14 + 7;
+      particles.push({
+        x:     mx,
+        y:     my,
+        vx:    -Math.cos(spread) * speed,
+        vy:    Math.sin(spread)  * speed + Math.random() * 1.8,
+        size:  Math.random() * 32 + 14,
+        life:  1.0,
+        decay: Math.random() * 0.015 + 0.010,
+        hue:   Math.random() * 48,
+      });
+    }
+  }
+
+  function stepParticles() {
+    for (const p of particles) {
+      p.x    += p.vx;
+      p.y    += p.vy;
+      p.vy   += 0.19;
+      p.vx   *= 0.97;
+      p.size *= 0.974;
+      p.life -= p.decay;
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life * 0.9);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+      g.addColorStop(0,    `hsl(${p.hue + 55}, 100%, 93%)`);
+      g.addColorStop(0.38, `hsl(${p.hue + 22}, 100%, 62%)`);
+      g.addColorStop(1,    `hsla(${p.hue}, 100%, 38%, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // ── Dragon state ─────────────────────────────────────
+  const D = {
+    x: canvas.width + 400,
+    y: canvas.height * 0.20,
+    t: 0,
+    phase: 'approach',
+    hoverT: 0, breathT: 0, leaveT: 0,
+    burnDone: false,
+  };
+
+  // ── Burn sequence ─────────────────────────────────────
+  const burnEls = [...document.querySelectorAll('header, .cat-nav, .section, footer')];
+  function doBurn() {
+    if (D.burnDone) return;
+    D.burnDone = true;
+    burnEls.forEach((el, i) =>
+      setTimeout(() => el.classList.add('burning'), i * 210)
+    );
+    setTimeout(() => endDiv.classList.add('show'),
+      burnEls.length * 210 + 2200);
+  }
+
+  // ── Dragon drawing ─────────────────────────────────────
+
+  function drawBody(x, y, t) {
+    const SEGS = 13, SL = 40;
+    const pts  = [];
+    for (let i = 0; i < SEGS; i++)
+      pts.push({ x: x + i*SL, y: y + Math.sin(t*0.044 + i*0.52)*24 });
+
+    // tail diamond
+    const T0 = pts[SEGS-1], T1 = pts[SEGS-2];
+    const ta  = Math.atan2(T0.y - T1.y, T0.x - T1.x);
+    const tip = { x: T0.x + Math.cos(ta)*62, y: T0.y + Math.sin(ta)*62 };
+    const pr  = ta + Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(T0.x, T0.y);
+    ctx.lineTo(tip.x - Math.cos(ta)*24 + Math.cos(pr)*15,
+               tip.y - Math.sin(ta)*24 + Math.sin(pr)*15);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.lineTo(tip.x - Math.cos(ta)*24 - Math.cos(pr)*15,
+               tip.y - Math.sin(ta)*24 - Math.sin(pr)*15);
+    ctx.closePath();
+    ctx.fillStyle = '#1B5E20'; ctx.fill();
+
+    // main body stroke
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i].x + pts[i+1].x) / 2;
+      const my = (pts[i].y + pts[i+1].y) / 2;
+      ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+    }
+    ctx.strokeStyle = '#388E3C'; ctx.lineWidth = 46;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+
+    // belly
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y + 10);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i].x + pts[i+1].x) / 2;
+      const my = (pts[i].y + pts[i+1].y) / 2;
+      ctx.quadraticCurveTo(pts[i].x, pts[i].y+10, mx, my+10);
+    }
+    ctx.strokeStyle = '#A5D6A7'; ctx.lineWidth = 18; ctx.stroke();
+
+    // dorsal spines
+    ctx.fillStyle = '#1B5E20';
+    for (let i = 2; i < pts.length - 3; i += 2) {
+      const p = pts[i], h = 14 + Math.sin(i*1.3)*5;
+      ctx.beginPath();
+      ctx.moveTo(p.x-7, p.y-16); ctx.lineTo(p.x, p.y-16-h); ctx.lineTo(p.x+7, p.y-16);
+      ctx.fill();
+    }
+
+    // wings
+    const wp   = pts[3];
+    const flap = Math.sin(t * 0.085) * 38;
+
+    // upper wing
+    ctx.beginPath();
+    ctx.moveTo(wp.x, wp.y - 14);
+    ctx.bezierCurveTo(wp.x-18,  wp.y-92+flap*0.4,
+                      wp.x-88,  wp.y-172+flap,
+                      wp.x-52,  wp.y-202+flap);
+    ctx.bezierCurveTo(wp.x+4,   wp.y-158+flap,
+                      wp.x+68,  wp.y-106+flap*0.7,
+                      wp.x+82,  wp.y-95+flap*0.5);
+    ctx.bezierCurveTo(wp.x+70,  wp.y-44+flap*0.25,
+                      wp.x+28,  wp.y-14,
+                      wp.x,     wp.y-14);
+    ctx.fillStyle = 'rgba(46,125,50,0.82)'; ctx.fill();
+    ctx.strokeStyle = '#1B5E20'; ctx.lineWidth = 2; ctx.stroke();
+
+    // upper wing ribs
+    [[wp.x,wp.y-14, wp.x-52,wp.y-202+flap],
+     [wp.x,wp.y-14, wp.x+82,wp.y-95+flap*0.5],
+     [wp.x,wp.y-14, wp.x+4, wp.y-158+flap*0.8]].forEach(([x1,y1,x2,y2])=>{
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+      ctx.strokeStyle='#1B5E20'; ctx.lineWidth=2.2; ctx.stroke();
+    });
+
+    // lower wing
+    ctx.beginPath();
+    ctx.moveTo(wp.x, wp.y + 14);
+    ctx.bezierCurveTo(wp.x-18,  wp.y+88-flap*0.4,
+                      wp.x-82,  wp.y+158-flap,
+                      wp.x-48,  wp.y+182-flap);
+    ctx.bezierCurveTo(wp.x+4,   wp.y+142-flap,
+                      wp.x+62,  wp.y+96-flap*0.7,
+                      wp.x+77,  wp.y+82-flap*0.45);
+    ctx.bezierCurveTo(wp.x+64,  wp.y+34-flap*0.2,
+                      wp.x+25,  wp.y+14,
+                      wp.x,     wp.y+14);
+    ctx.fillStyle = 'rgba(46,125,50,0.75)'; ctx.fill();
+    ctx.strokeStyle = '#1B5E20'; ctx.lineWidth = 2; ctx.stroke();
+
+    return pts[0];
+  }
+
+  function drawHead(hx, hy, breathing) {
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.scale(-1, 1); // face LEFT
+
+    const jaw = breathing ? 0.50 : 0.08;
+
+    // neck
+    ctx.beginPath();
+    ctx.ellipse(-5, 0, 33, 29, 0, 0, Math.PI*2);
+    ctx.fillStyle='#388E3C'; ctx.fill();
+
+    // skull
+    ctx.beginPath();
+    ctx.ellipse(-33, -2, 51, 33, -0.08, 0, Math.PI*2);
+    ctx.fillStyle='#388E3C'; ctx.fill();
+    ctx.strokeStyle='#2E7D32'; ctx.lineWidth=2; ctx.stroke();
+
+    // upper snout
+    ctx.beginPath();
+    ctx.moveTo(-13,-19);
+    ctx.bezierCurveTo(12,-23, 47,-17, 65,-4);
+    ctx.bezierCurveTo(65,10, 45,17,  13,15);
+    ctx.bezierCurveTo(-4,15,-13,7,  -13,-11);
+    ctx.closePath();
+    ctx.fillStyle='#2E7D32'; ctx.fill();
+    ctx.strokeStyle='#1B5E20'; ctx.lineWidth=1.5; ctx.stroke();
+
+    // nostril
+    ctx.beginPath();
+    ctx.ellipse(55,1,5.5,3.5,0.4,0,Math.PI*2);
+    ctx.fillStyle='#1B5E20'; ctx.fill();
+
+    if (breathing) {
+      // nostril fire glow
+      const ng = ctx.createRadialGradient(55,1,0,55,1,24);
+      ng.addColorStop(0,'rgba(255,130,0,0.75)');
+      ng.addColorStop(1,'rgba(255,50,0,0)');
+      ctx.fillStyle=ng;
+      ctx.beginPath(); ctx.arc(55,1,24,0,Math.PI*2); ctx.fill();
+
+      // upper teeth
+      ctx.fillStyle='#F5F5F5';
+      [9,18,27,36,45].forEach(tx=>{
+        ctx.beginPath();
+        ctx.moveTo(tx,14); ctx.lineTo(tx+4,25); ctx.lineTo(tx+8,14);
+        ctx.fill();
+      });
+    }
+
+    // lower jaw
+    ctx.save();
+    ctx.translate(11, 15);
+    ctx.rotate(jaw);
+
+    ctx.beginPath();
+    ctx.moveTo(-17,0);
+    ctx.bezierCurveTo(6,4, 43,9, 61,6);
+    ctx.bezierCurveTo(59,21, 37,25, 7,21);
+    ctx.bezierCurveTo(-5,21,-17,15,-17,0);
+    ctx.closePath();
+    ctx.fillStyle='#2E7D32'; ctx.fill();
+    ctx.strokeStyle='#1B5E20'; ctx.lineWidth=1.5; ctx.stroke();
+
+    if (jaw > 0.3) {
+      // lower teeth
+      ctx.fillStyle='#F5F5F5';
+      [3,14,25,36].forEach(ltx=>{
+        ctx.beginPath();
+        ctx.moveTo(ltx,0); ctx.lineTo(ltx+4,-11); ctx.lineTo(ltx+8,0);
+        ctx.fill();
+      });
+      // inner mouth glow
+      const fg = ctx.createRadialGradient(33,7,0,33,7,40);
+      fg.addColorStop(0,  'rgba(255,215,0,0.95)');
+      fg.addColorStop(0.45,'rgba(255,95,0,0.65)');
+      fg.addColorStop(1,  'rgba(255,0,0,0)');
+      ctx.fillStyle=fg;
+      ctx.beginPath(); ctx.ellipse(33,7,40,16,0,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore(); // lower jaw
+
+    // eye
+    ctx.beginPath(); ctx.ellipse(-21,-15,13,9.5,0,0,Math.PI*2);
+    ctx.fillStyle='#FFD600'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-19,-15,5,8.5,0.18,0,Math.PI*2);
+    ctx.fillStyle='#111'; ctx.fill();
+    ctx.beginPath(); ctx.arc(-23,-18,2.8,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.fill();
+
+    // brow
+    ctx.beginPath(); ctx.moveTo(-33,-23); ctx.lineTo(-7,-21);
+    ctx.strokeStyle='#1B5E20'; ctx.lineWidth=4.5; ctx.lineCap='round'; ctx.stroke();
+
+    // main horn
+    ctx.beginPath();
+    ctx.moveTo(-31,-29);
+    ctx.bezierCurveTo(-23,-54,-16,-72,-9,-76);
+    ctx.bezierCurveTo(-5,-74,-7,-57,-15,-33);
+    ctx.closePath();
+    ctx.fillStyle='#4CAF50'; ctx.fill();
+    ctx.strokeStyle='#1B5E20'; ctx.lineWidth=1.5; ctx.stroke();
+
+    // secondary horn
+    ctx.beginPath();
+    ctx.moveTo(-48,-26);
+    ctx.bezierCurveTo(-41,-48,-35,-60,-29,-63);
+    ctx.bezierCurveTo(-25,-61,-28,-47,-37,-29);
+    ctx.closePath();
+    ctx.fillStyle='#4CAF50'; ctx.fill();
+    ctx.strokeStyle='#1B5E20'; ctx.lineWidth=1.5; ctx.stroke();
+
+    // skull spines
+    ctx.fillStyle='#1B5E20';
+    [[-62,-29],[-52,-31],[-41,-31],[-31,-29]].forEach(([sx,sy])=>{
+      ctx.beginPath();
+      ctx.moveTo(sx-5,sy); ctx.lineTo(sx,sy-17); ctx.lineTo(sx+5,sy);
+      ctx.fill();
+    });
+
+    ctx.restore(); // head
+  }
+
+  // ── Main animation loop ──────────────────────────────
+  let raf;
+
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    D.t++;
+
+    const headY    = D.y + Math.sin(D.t * 0.044) * 24;
+    const breathing = D.phase === 'breathe' || (D.phase === 'leave' && D.leaveT < 35);
+
+    // state machine
+    switch (D.phase) {
+      case 'approach':
+        D.x -= 5.5;
+        if (D.x < canvas.width * 0.56) D.phase = 'hover';
+        break;
+      case 'hover':
+        D.hoverT++;
+        D.y = canvas.height * 0.20 + Math.sin(D.t * 0.05) * 8;
+        if (D.hoverT > 50) D.phase = 'breathe';
+        break;
+      case 'breathe':
+        D.breathT++;
+        D.y = canvas.height * 0.20 + Math.sin(D.t * 0.05) * 8;
+        // fire emits from snout tip: x-66 (local x=66, flipped), y + jaw-open offset
+        emitFire(D.x - 68, headY + 26 + Math.sin(D.t * 0.04) * 9);
+        if (D.breathT > 215) { D.phase = 'leave'; doBurn(); }
+        break;
+      case 'leave':
+        D.leaveT++;
+        D.x -= 8;
+        D.y -= 0.6;
+        if (D.leaveT < 30) emitFire(D.x - 68, headY + 26);
+        if (D.x < -650) D.phase = 'done';
+        break;
+      case 'done':
+        stepParticles(); drawParticles();
+        if (particles.length > 0) raf = requestAnimationFrame(tick);
+        return;
+    }
+
+    // fire glow on canvas background
+    if (breathing) {
+      const glow = ctx.createRadialGradient(D.x, headY+30, 0, D.x, headY+30, 300);
+      glow.addColorStop(0,'rgba(255,90,0,0.08)');
+      glow.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // draw dragon (particles on top so fire looks forward)
+    drawBody(D.x, D.y, D.t);
+    drawHead(D.x, headY, breathing);
+    stepParticles();
+    drawParticles();
+
+    raf = requestAnimationFrame(tick);
+  }
+
+  tick();
+}
+</script>
+</body>
+</html>

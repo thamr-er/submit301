@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPC Message Passing Model</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #08111f, #102542, #0b132b);
+      color: #eef6ff;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    header {
+      text-align: center;
+      padding: 45px 20px 30px;
+      background: rgba(0, 0, 0, 0.25);
+      border-bottom: 1px solid rgba(0, 255, 255, 0.25);
+    }
+
+    header h1 {
+      font-size: 2.6rem;
+      color: #56f0ff;
+      margin-bottom: 10px;
+      text-shadow: 0 0 16px rgba(86, 240, 255, 0.5);
+    }
+
+    header p {
+      color: #c9d8ff;
+      font-size: 1.05rem;
+    }
+
+    .container {
+      width: min(1150px, 92%);
+      margin: 30px auto;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(10px);
+    }
+
+    h2 {
+      color: #7cf7c2;
+      margin-bottom: 14px;
+      font-size: 1.7rem;
+    }
+
+    h3 {
+      color: #56f0ff;
+      margin: 16px 0 8px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .mini-card {
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(86, 240, 255, 0.18);
+      padding: 18px;
+      border-radius: 14px;
+    }
+
+    .demo-area {
+      position: relative;
+      min-height: 330px;
+      border-radius: 20px;
+      background: radial-gradient(circle at top, rgba(86, 240, 255, 0.10), rgba(0, 0, 0, 0.25));
+      border: 1px solid rgba(86, 240, 255, 0.22);
+      overflow: hidden;
+      margin-top: 20px;
+      padding: 24px;
+    }
+
+    .process-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      min-height: 150px;
+    }
+
+    .process, .kernel {
+      width: 30%;
+      min-height: 145px;
+      border-radius: 18px;
+      padding: 18px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .process {
+      background: linear-gradient(160deg, #12365c, #0e2240);
+      border: 2px solid #56f0ff;
+      box-shadow: 0 0 18px rgba(86, 240, 255, 0.25);
+    }
+
+    .kernel {
+      background: linear-gradient(160deg, #2a1748, #15102d);
+      border: 2px solid #c77dff;
+      box-shadow: 0 0 18px rgba(199, 125, 255, 0.25);
+    }
+
+    .process-icon {
+      font-size: 2.4rem;
+      margin-bottom: 8px;
+    }
+
+    .label {
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin-bottom: 6px;
+    }
+
+    .small-text {
+      color: #c7d4f7;
+      font-size: 0.92rem;
+    }
+
+    .queue {
+      min-height: 38px;
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px dashed rgba(255, 255, 255, 0.25);
+      font-size: 0.85rem;
+    }
+
+    .message {
+      position: absolute;
+      top: 136px;
+      left: 8%;
+      background: #7cf7c2;
+      color: #06121f;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: bold;
+      box-shadow: 0 0 20px rgba(124, 247, 194, 0.65);
+      opacity: 0;
+      z-index: 5;
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .move-direct {
+      animation: directMove 2.5s ease-in-out forwards;
+    }
+
+    .move-mailbox {
+      animation: mailboxMove 3.2s ease-in-out forwards;
+    }
+
+    @keyframes directMove {
+      0% { left: 8%; opacity: 0; transform: scale(0.85); }
+      15% { opacity: 1; transform: scale(1); }
+      50% { left: 45%; }
+      100% { left: 78%; opacity: 1; }
+    }
+
+    @keyframes mailboxMove {
+      0% { left: 8%; opacity: 0; transform: scale(0.85); }
+      15% { opacity: 1; transform: scale(1); }
+      45% { left: 45%; }
+      70% { left: 45%; transform: scale(1.12); }
+      100% { left: 78%; opacity: 1; transform: scale(1); }
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(86, 240, 255, 0.4);
+      background: rgba(0, 0, 0, 0.35);
+      color: white;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #07101c;
+      background: #56f0ff;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 16px rgba(86, 240, 255, 0.6);
+    }
+
+    .green-btn {
+      background: #7cf7c2;
+    }
+
+    .purple-btn {
+      background: #c77dff;
+    }
+
+    .red-btn {
+      background: #ff7b7b;
+    }
+
+    .status-box {
+      margin-top: 18px;
+      padding: 15px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.28);
+      border-left: 4px solid #56f0ff;
+      min-height: 55px;
+    }
+
+    .terminal {
+      background: #050b14;
+      border: 1px solid rgba(124, 247, 194, 0.25);
+      border-radius: 14px;
+      padding: 16px;
+      font-family: Consolas, monospace;
+      color: #7cf7c2;
+      min-height: 130px;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    .comparison th,
+    .comparison td {
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 13px;
+      text-align: left;
+    }
+
+    .comparison th {
+      background: rgba(86, 240, 255, 0.18);
+      color: #56f0ff;
+    }
+
+    .comparison tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #a9b7d7;
+    }
+
+    .highlight {
+      color: #7cf7c2;
+      font-weight: bold;
+    }
+
+    @media (max-width: 800px) {
+      .process-row {
+        flex-direction: column;
+      }
+
+      .process, .kernel {
+        width: 100%;
+      }
+
+      .message {
+        display: none;
+      }
+
+      header h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Interprocess Communication: Message Passing Model</h1>
+    <p>Operating Systems Interactive Web Portfolio | Task 10</p>
+    <p>Prepared by: <strong>Milad Fareed</strong></p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>What is Interprocess Communication?</h2>
+      <p>
+        In an operating system, a <span class="highlight">process</span> is a program that is currently running.
+        Sometimes, two or more processes need to cooperate. For example, one process may produce data while another
+        process consumes it. This cooperation is called <span class="highlight">Interprocess Communication</span>, or IPC.
+      </p>
+      <p>
+        IPC allows processes to exchange information, synchronize their work, and avoid conflicts. Without IPC,
+        processes would be isolated and unable to work together efficiently.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Shared Memory vs Message Passing</h2>
+      <table class="comparison">
+        <tr>
+          <th>Shared Memory</th>
+          <th>Message Passing</th>
+        </tr>
+        <tr>
+          <td>Processes communicate by reading and writing to a shared memory region.</td>
+          <td>Processes communicate by sending and receiving messages.</td>
+        </tr>
+        <tr>
+          <td>Usually faster, but requires careful synchronization.</td>
+          <td>Safer and easier to control because the OS can manage the communication.</td>
+        </tr>
+        <tr>
+          <td>Common in systems where processes are on the same machine.</td>
+          <td>Useful for local systems and distributed systems.</td>
+        </tr>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Interactive Demo: Send a Message</h2>
+      <p>
+        Type a message below, choose a communication type, then send it. Watch how the message travels from
+        <span class="highlight">Process A</span> to <span class="highlight">Process B</span> through the operating system.
+      </p>
+
+      <div class="demo-area">
+        <div id="movingMessage" class="message">Message</div>
+
+        <div class="process-row">
+          <div class="process">
+            <div class="process-icon">🧠</div>
+            <div class="label">Process A</div>
+            <div class="small-text">Sender process</div>
+            <div class="queue" id="senderState">Ready to send</div>
+          </div>
+
+          <div class="kernel">
+            <div class="process-icon">📬</div>
+            <div class="label">Kernel / Mailbox</div>
+            <div class="small-text">OS manages message delivery</div>
+            <div class="queue" id="kernelQueue">Queue is empty</div>
+          </div>
+
+          <div class="process">
+            <div class="process-icon">💻</div>
+            <div class="label">Process B</div>
+            <div class="small-text">Receiver process</div>
+            <div class="queue" id="receiverState">Waiting for message</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <input id="messageInput" type="text" placeholder="Type your message here..." value="Hello from Process A!" />
+
+          <select id="modeSelect">
+            <option value="direct">Direct Communication</option>
+            <option value="mailbox">Indirect Communication through Mailbox</option>
+          </select>
+
+          <div class="button-row">
+            <button onclick="sendMessage()">Send Message</button>
+            <button class="green-btn" onclick="blockingSend()">Blocking Send</button>
+            <button class="purple-btn" onclick="nonBlockingSend()">Non-Blocking Send</button>
+            <button class="red-btn" onclick="resetDemo()">Reset</button>
+          </div>
+        </div>
+
+        <div class="status-box" id="statusBox">
+          Status: No message has been sent yet.
+        </div>
+
+        <div class="terminal" id="terminal">
+          > IPC simulation ready...<br>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>How Message Passing Works</h2>
+      <div class="grid">
+        <div class="mini-card">
+          <h3>1. Sender</h3>
+          <p>The sender process creates a message and requests the operating system to deliver it.</p>
+        </div>
+        <div class="mini-card">
+          <h3>2. Kernel</h3>
+          <p>The kernel checks, stores, and transfers the message safely between processes.</p>
+        </div>
+        <div class="mini-card">
+          <h3>3. Receiver</h3>
+          <p>The receiver process gets the message and uses the information inside it.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Types of Message Passing</h2>
+
+      <h3>Direct Communication</h3>
+      <p>
+        In direct communication, the sender must know the receiver. For example:
+        Process A sends a message directly to Process B.
+      </p>
+
+      <h3>Indirect Communication</h3>
+      <p>
+        In indirect communication, messages are sent to a mailbox or message queue.
+        The receiver reads messages from that mailbox. This is useful when many processes need to communicate.
+      </p>
+
+      <h3>Blocking Communication</h3>
+      <p>
+        In blocking communication, the sender or receiver waits until the operation is complete.
+        For example, the sender may pause until the receiver accepts the message.
+      </p>
+
+      <h3>Non-Blocking Communication</h3>
+      <p>
+        In non-blocking communication, the sender continues working immediately after sending the message.
+        It does not wait for the receiver.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Advantages and Disadvantages</h2>
+      <div class="grid">
+        <div class="mini-card">
+          <h3>Advantages</h3>
+          <p>Message passing is safer, easier to control, and useful for distributed systems. It also avoids direct shared-memory conflicts.</p>
+        </div>
+        <div class="mini-card">
+          <h3>Disadvantages</h3>
+          <p>It can be slower than shared memory because messages must pass through the operating system or communication channel.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Real-World Examples</h2>
+      <p>
+        Message passing is used in client-server applications, chat systems, operating system services,
+        distributed systems, and microservices. For example, when a browser asks a web server for a page,
+        it sends a request message and waits for a response message.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Conclusion</h2>
+      <p>
+        The Message Passing Model is an important IPC method that allows processes to communicate without directly
+        sharing memory. It uses sending, receiving, queues, and sometimes blocking behavior to make process cooperation
+        organized and safe.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    Operating Systems | Interactive Web Portfolio | Task 10
+  </footer>
+
+  <script>
+    const movingMessage = document.getElementById("movingMessage");
+    const senderState = document.getElementById("senderState");
+    const kernelQueue = document.getElementById("kernelQueue");
+    const receiverState = document.getElementById("receiverState");
+    const statusBox = document.getElementById("statusBox");
+    const terminal = document.getElementById("terminal");
+
+    function log(text) {
+      terminal.innerHTML += "> " + text + "<br>";
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function sendMessage(customType = "Normal Send") {
+      const input = document.getElementById("messageInput");
+      const mode = document.getElementById("modeSelect").value;
+      const messageText = input.value.trim() || "Empty message";
+
+      movingMessage.className = "message";
+      void movingMessage.offsetWidth;
+
+      movingMessage.textContent = messageText;
+      senderState.textContent = customType + ": message created";
+      kernelQueue.textContent = "Message in transit...";
+      receiverState.textContent = "Waiting...";
+      statusBox.textContent = "Status: Process A is sending a message to Process B.";
+      log("Process A created message: '" + messageText + "'");
+
+      if (mode === "mailbox") {
+        movingMessage.classList.add("move-mailbox");
+        log("Message placed inside mailbox queue.");
+      } else {
+        movingMessage.classList.add("move-direct");
+        log("Direct send requested from Process A to Process B.");
+      }
+
+      setTimeout(() => {
+        kernelQueue.textContent = "Message delivered";
+        receiverState.textContent = "Received: " + messageText;
+        statusBox.textContent = "Status: Process B received the message successfully.";
+        log("Process B received the message.");
+      }, mode === "mailbox" ? 3200 : 2500);
+    }
+
+    function blockingSend() {
+      senderState.textContent = "Blocked: waiting for receiver...";
+      statusBox.textContent = "Status: Blocking send selected. Process A waits until Process B receives the message.";
+      log("Blocking send started. Sender is waiting.");
+      sendMessage("Blocking Send");
+
+      setTimeout(() => {
+        senderState.textContent = "Unblocked: delivery complete";
+        log("Sender unblocked after receiver accepted the message.");
+      }, 3400);
+    }
+
+    function nonBlockingSend() {
+      senderState.textContent = "Sent and continued working";
+      statusBox.textContent = "Status: Non-blocking send selected. Process A continues working immediately.";
+      log("Non-blocking send started. Sender continues execution.");
+      sendMessage("Non-Blocking Send");
+
+      setTimeout(() => {
+        senderState.textContent = "Doing other work...";
+        log("Process A did not wait for the receiver.");
+      }, 900);
+    }
+
+    function resetDemo() {
+      movingMessage.className = "message";
+      movingMessage.style.opacity = "0";
+      senderState.textContent = "Ready to send";
+      kernelQueue.textContent = "Queue is empty";
+      receiverState.textContent = "Waiting for message";
+      statusBox.textContent = "Status: Demo reset. No message has been sent yet.";
+      terminal.innerHTML = "> IPC simulation ready...<br>";
+    }
+  </script>
+</body>
+</html>

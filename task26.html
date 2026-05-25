@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>exit() System Call Demo</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(to right, #0f172a, #1e293b);
+      color: white;
+      min-height: 100vh;
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 42px;
+      color: #38bdf8;
+    }
+
+    h2 {
+      margin-top: 30px;
+      margin-bottom: 15px;
+      color: #facc15;
+    }
+
+    p {
+      line-height: 1.7;
+      margin-bottom: 15px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 25px;
+      margin-top: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    .code {
+      background: #0f172a;
+      color: #4ade80;
+      padding: 20px;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      font-family: Consolas, monospace;
+    }
+
+    button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #38bdf8;
+      color: black;
+      font-weight: bold;
+      margin-top: 15px;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #0ea5e9;
+      transform: scale(1.05);
+    }
+
+    .terminal {
+      background: black;
+      color: #00ff66;
+      padding: 20px;
+      border-radius: 12px;
+      min-height: 220px;
+      margin-top: 20px;
+      font-family: monospace;
+      overflow-y: auto;
+    }
+
+    .process-box {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      margin-top: 25px;
+      gap: 20px;
+    }
+
+    .process {
+      width: 220px;
+      height: 120px;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      font-weight: bold;
+      transition: 0.5s;
+      background: #1e40af;
+      box-shadow: 0 0 15px rgba(0,0,0,0.4);
+    }
+
+    .running {
+      background: #16a34a;
+    }
+
+    .terminated {
+      background: #dc2626;
+      transform: scale(0.95);
+      opacity: 0.7;
+    }
+
+    ul {
+      padding-left: 25px;
+      margin-top: 10px;
+      line-height: 1.8;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .highlight {
+      color: #4ade80;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <h1>exit() System Call</h1>
+
+    <div class="card">
+      <h2>What is exit()?</h2>
+
+      <p>
+        The <span class="highlight">exit()</span> system call is used in Operating Systems to terminate a process.
+        When a process finishes its execution or encounters an error, it calls exit() to stop running and return
+        control back to the Operating System.
+      </p>
+
+      <p>
+        In Linux and UNIX systems, exit() also returns an exit status code to the parent process.
+        A status of <span class="highlight">0</span> usually means successful execution, while any non-zero value
+        indicates an error.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Important Features of exit()</h2>
+
+      <ul>
+        <li>Terminates the current process.</li>
+        <li>Returns an exit status to the parent process.</li>
+        <li>Closes open files and releases memory resources.</li>
+        <li>Removes the process from the CPU scheduling queue.</li>
+        <li>Helps the Operating System clean up process resources.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>C Example Using exit()</h2>
+
+      <div class="code">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+int main() {
+    printf("Program is running...\n");
+
+    exit(0);
+
+    printf("This line will never execute.");
+
+    return 0;
+}
+      </div>
+
+      <p style="margin-top:15px;">
+        In this example, the program stops immediately when <span class="highlight">exit(0)</span> is called.
+        The statement after exit() will never run.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Interactive Demo</h2>
+
+      <p>
+        Click the button below to simulate how a process uses exit() to terminate.
+      </p>
+
+      <button onclick="runDemo()">Run exit() Demo</button>
+
+      <div class="process-box">
+        <div class="process running" id="processBox">
+          <div>PROCESS</div>
+          <div id="processState">RUNNING</div>
+        </div>
+      </div>
+
+      <div class="terminal" id="terminal">
+$ Waiting for simulation...
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>How exit() Works Internally</h2>
+
+      <p>
+        When a process calls exit(), the Operating System performs several actions:
+      </p>
+
+      <ul>
+        <li>Stops process execution.</li>
+        <li>Stores the exit status code.</li>
+        <li>Releases memory allocated to the process.</li>
+        <li>Closes open file descriptors.</li>
+        <li>Notifies the parent process using wait().</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Advantages of exit()</h2>
+
+      <ul>
+        <li>Provides clean process termination.</li>
+        <li>Helps prevent memory leaks.</li>
+        <li>Allows parent processes to detect child completion.</li>
+        <li>Improves resource management inside the Operating System.</li>
+      </ul>
+    </div>
+
+    <footer>
+      Operating Systems Interactive Web Portfolio – Topic 26: exit() System Call
+    </footer>
+
+  </div>
+
+  <script>
+    function runDemo() {
+      const terminal = document.getElementById('terminal');
+      const processBox = document.getElementById('processBox');
+      const processState = document.getElementById('processState');
+
+      terminal.innerHTML = '$ Starting process...';
+
+      processBox.classList.remove('terminated');
+      processBox.classList.add('running');
+      processState.innerText = 'RUNNING';
+
+      setTimeout(() => {
+        terminal.innerHTML += '\n$ Process executing instructions...';
+      }, 1000);
+
+      setTimeout(() => {
+        terminal.innerHTML += '\n$ exit(0) called';
+      }, 2000);
+
+      setTimeout(() => {
+        processBox.classList.remove('running');
+        processBox.classList.add('terminated');
+        processState.innerText = 'TERMINATED';
+
+        terminal.innerHTML += '\n$ Releasing memory resources...';
+      }, 3000);
+
+      setTimeout(() => {
+        terminal.innerHTML += '\n$ Closing open files...';
+      }, 4000);
+
+      setTimeout(() => {
+        terminal.innerHTML += '\n$ Returning status code to parent process';
+      }, 5000);
+
+      setTimeout(() => {
+        terminal.innerHTML += '\n$ Process successfully terminated.';
+      }, 6000);
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Virtual Memory &amp; Paging — OS Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #111520;
+    --surface2: #181d2a;
+    --border: #252d40;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 3rem 0 2rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+  .header-inner {
+    display: flex;
+    align-items: flex-end;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .topic-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.25);
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1;
+    background: linear-gradient(135deg, #e2e8f0 30%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    margin-top: 0.5rem;
+    font-weight: 400;
+  }
+  .author-tag {
+    margin-left: auto;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .author-tag span { color: var(--accent); }
+
+  /* ── SECTIONS ── */
+  section { margin-bottom: 3.5rem; }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── THEORY CARD ── */
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 700px) { .theory-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(0,212,255,0.3); }
+  .card h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+  }
+  .card p {
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: #94a3b8;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .card.wide { grid-column: 1 / -1; }
+
+  /* formula box */
+  .formula {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent2);
+    border-radius: 0 6px 6px 0;
+    padding: 1rem 1.25rem;
+    margin-top: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--accent2);
+  }
+
+  /* ── ADDRESS TRANSLATION DIAGRAM ── */
+  .addr-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2rem;
+  }
+
+  .addr-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .addr-box {
+    text-align: center;
+    position: relative;
+  }
+  .addr-bits {
+    display: flex;
+    gap: 2px;
+  }
+  .bit-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .bit-group-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .bits {
+    display: flex;
+    gap: 2px;
+  }
+  .bit {
+    width: 22px;
+    height: 30px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border: 1px solid;
+  }
+  .bit.page { background: rgba(0,212,255,0.12); border-color: var(--accent); color: var(--accent); }
+  .bit.offset { background: rgba(168,85,247,0.12); border-color: var(--accent3); color: var(--accent3); }
+
+  .arrow {
+    font-size: 1.5rem;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .page-table-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    min-width: 160px;
+    text-align: center;
+  }
+  .page-table-box h4 {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+  .pt-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    border-radius: 3px;
+    margin: 2px 0;
+  }
+  .pt-entry.highlight { background: rgba(0,212,255,0.15); color: var(--accent); }
+  .pt-entry:not(.highlight) { color: var(--muted); }
+
+  .phys-bits .bit.frame { background: rgba(34,197,94,0.12); border-color: var(--green); color: var(--green); }
+  .phys-bits .bit.offset { background: rgba(168,85,247,0.12); border-color: var(--accent3); color: var(--accent3); }
+
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.25rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+
+  /* ── INTERACTIVE SIMULATOR ── */
+  .simulator {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .sim-header {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .sim-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .sim-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .sim-body { padding: 1.5rem; }
+
+  .sim-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .control-group label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .control-group input, .control-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 130px;
+  }
+  .control-group input:focus, .control-group select:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    padding: 0.55rem 1.25rem;
+    border-radius: 6px;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn-primary:hover { background: #33dcff; transform: translateY(-1px); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--muted); color: var(--text); }
+
+  .sim-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 600px) { .sim-results { grid-template-columns: 1fr; } }
+
+  .result-panel {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .result-panel h4 {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.75rem;
+  }
+
+  .addr-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .addr-display.virtual { color: var(--accent); }
+  .addr-display.physical { color: var(--green); }
+  .addr-display.fault { color: var(--red); }
+
+  .breakdown {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .breakdown b { font-weight: 700; }
+  .breakdown .b-page { color: var(--accent); }
+  .breakdown .b-frame { color: var(--green); }
+  .breakdown .b-offset { color: var(--accent3); }
+
+  .status-pill {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-top: 0.5rem;
+  }
+  .status-hit { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .status-fault { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+
+  /* ── PAGE TABLE DISPLAY ── */
+  .pt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  .pt-table th {
+    background: var(--surface2);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+  .pt-table td {
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: var(--text);
+    transition: background 0.2s;
+  }
+  .pt-table tr.active-row td { background: rgba(0,212,255,0.08); }
+  .pt-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .valid-yes { color: var(--green); }
+  .valid-no  { color: var(--red); }
+
+  /* ── PAGE FAULT SECTION ── */
+  .fault-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .fault-step {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255,107,53,0.15);
+    border: 1px solid rgba(255,107,53,0.4);
+    color: var(--accent2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-text {
+    padding-top: 0.2rem;
+    font-size: 0.88rem;
+    color: #94a3b8;
+    line-height: 1.6;
+  }
+  .step-text b { color: var(--text); font-weight: 600; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  footer span { color: var(--accent); }
+
+  /* animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  section { animation: fadeUp 0.4s ease both; }
+  section:nth-child(1) { animation-delay: 0.05s; }
+  section:nth-child(2) { animation-delay: 0.1s; }
+  section:nth-child(3) { animation-delay: 0.15s; }
+  section:nth-child(4) { animation-delay: 0.2s; }
+  section:nth-child(5) { animation-delay: 0.25s; }
+
+  .highlight-row td { background: rgba(0,212,255,0.12) !important; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div>
+        <div class="topic-badge">Topic #14 · Operating Systems</div>
+        <h1>Virtual Memory<br>&amp; Paging</h1>
+        <p class="subtitle">An interactive study of how the OS maps virtual addresses to physical memory</p>
+      </div>
+      <div class="author-tag">
+        <div>Maad Kamal Mawlwd</div>
+        <div>ID: <span>12300117</span></div>
+        <div style="margin-top:0.25rem; color: rgba(100,116,139,0.6);">OS Interactive Portfolio</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 1. THEORY -->
+  <section>
+    <div class="section-title">01 — Core Concepts</div>
+    <div class="theory-grid">
+      <div class="card">
+        <h3>What is Virtual Memory?</h3>
+        <p>Virtual Memory is an abstraction that gives each process the illusion of having its own large, contiguous address space — even if the actual physical RAM is smaller or fragmented. The OS and hardware work together to translate <em>virtual addresses</em> (used by programs) into <em>physical addresses</em> (actual RAM locations).</p>
+      </div>
+      <div class="card">
+        <h3>What is Paging?</h3>
+        <p>Paging is the mechanism that implements virtual memory. Both the virtual address space and physical memory are divided into fixed-size blocks. Virtual blocks are called <strong style="color:var(--accent)">pages</strong>. Physical blocks are called <strong style="color:var(--green)">frames</strong>. Pages are mapped to frames via a <strong style="color:var(--accent2)">page table</strong>.</p>
+      </div>
+      <div class="card">
+        <h3>Why Paging?</h3>
+        <p>Without paging, programs must fit entirely in contiguous RAM. With paging: processes can be larger than physical RAM, multiple processes share RAM safely without interference, and memory fragmentation is eliminated because any frame can hold any page.</p>
+      </div>
+      <div class="card">
+        <h3>Address Structure</h3>
+        <p>A virtual address is split into two parts by the CPU:</p>
+        <div class="formula">
+          Virtual Address = [ Page Number | Page Offset ]<br><br>
+          Physical Address = [ Frame Number | Page Offset ]<br><br>
+          Page Size = 2^(offset bits) bytes
+        </div>
+      </div>
+      <div class="card wide">
+        <h3>Key Terminology</h3>
+        <p>
+          <strong style="color:var(--accent)">Page Table</strong> — A per-process data structure maintained by the OS. Each entry maps a virtual page number to a physical frame number, plus a <em>valid bit</em>.<br><br>
+          <strong style="color:var(--accent2)">Page Fault</strong> — Occurs when the CPU accesses a page whose valid bit is 0 (not currently in RAM). The OS must load the page from disk (swap space) into a free frame and update the page table.<br><br>
+          <strong style="color:var(--accent3)">TLB (Translation Lookaside Buffer)</strong> — A hardware cache inside the CPU that stores recent page→frame translations to speed up address translation without hitting the page table in RAM every time.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. DIAGRAM -->
+  <section>
+    <div class="section-title">02 — Address Translation Diagram</div>
+    <div class="addr-diagram">
+      <p style="font-size:0.85rem; color:var(--muted); font-family:'JetBrains Mono',monospace; margin-bottom:1.5rem; text-align:center;">
+        How the CPU translates a Virtual Address → Physical Address using the Page Table
+      </p>
+      <div class="addr-row">
+        <!-- Virtual Address -->
+        <div class="addr-box">
+          <div style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.1em;">Virtual Address (16-bit example)</div>
+          <div class="addr-bits">
+            <div class="bit-group">
+              <div class="bit-group-label">Page Number (8 bits)</div>
+              <div class="bits">
+                <div class="bit page">1</div><div class="bit page">0</div>
+                <div class="bit page">0</div><div class="bit page">0</div>
+                <div class="bit page">0</div><div class="bit page">0</div>
+                <div class="bit page">1</div><div class="bit page">0</div>
+              </div>
+            </div>
+            <div style="width:6px;"></div>
+            <div class="bit-group">
+              <div class="bit-group-label">Offset (8 bits)</div>
+              <div class="bits">
+                <div class="bit offset">0</div><div class="bit offset">0</div>
+                <div class="bit offset">1</div><div class="bit offset">0</div>
+                <div class="bit offset">0</div><div class="bit offset">1</div>
+                <div class="bit offset">1</div><div class="bit offset">0</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--muted);text-align:center;margin-top:8px;">
+            Page # = <span style="color:var(--accent)">0x82</span> &nbsp;|&nbsp; Offset = <span style="color:var(--accent3)">0x26</span>
+          </div>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <!-- Page Table -->
+        <div class="page-table-box">
+          <h4>Page Table</h4>
+          <div class="pt-entry" style="color:var(--muted); font-size:0.65rem; padding-bottom:4px;">Page → Frame</div>
+          <div class="pt-entry">0x80 → 0x01</div>
+          <div class="pt-entry">0x81 → 0x07</div>
+          <div class="pt-entry highlight">0x82 → <span style="color:var(--green)">0x03</span></div>
+          <div class="pt-entry">0x83 → FAULT</div>
+          <div class="pt-entry">0x84 → 0x0A</div>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <!-- Physical Address -->
+        <div class="addr-box">
+          <div style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.1em;">Physical Address (16-bit)</div>
+          <div class="addr-bits phys-bits">
+            <div class="bit-group">
+              <div class="bit-group-label">Frame Number (8 bits)</div>
+              <div class="bits">
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">0</div>
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">0</div>
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">0</div>
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">0</div>
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">0</div>
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">0</div>
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">1</div>
+                <div class="bit frame" style="background:rgba(34,197,94,0.12);border-color:var(--green);color:var(--green)">1</div>
+              </div>
+            </div>
+            <div style="width:6px;"></div>
+            <div class="bit-group">
+              <div class="bit-group-label">Offset (8 bits — unchanged)</div>
+              <div class="bits">
+                <div class="bit offset">0</div><div class="bit offset">0</div>
+                <div class="bit offset">1</div><div class="bit offset">0</div>
+                <div class="bit offset">0</div><div class="bit offset">1</div>
+                <div class="bit offset">1</div><div class="bit offset">0</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--muted);text-align:center;margin-top:8px;">
+            Frame # = <span style="color:var(--green)">0x03</span> &nbsp;|&nbsp; Offset = <span style="color:var(--accent3)">0x26</span>
+            &nbsp;→ <span style="color:var(--text)">Physical: 0x0326</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent);"></div> Page Number (virtual)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green);"></div> Frame Number (physical)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent3);"></div> Offset (same in both)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. INTERACTIVE SIMULATOR -->
+  <section>
+    <div class="section-title">03 — Interactive Address Translator</div>
+    <div class="simulator">
+      <div class="sim-header">
+        <div class="sim-dot" style="background:#ef4444;"></div>
+        <div class="sim-dot" style="background:#eab308;"></div>
+        <div class="sim-dot" style="background:#22c55e;"></div>
+        <div class="sim-title">virtual_memory_simulator.exe — address translation engine</div>
+      </div>
+      <div class="sim-body">
+        <div class="sim-controls">
+          <div class="control-group">
+            <label>Virtual Address (decimal)</label>
+            <input type="number" id="virtAddr" value="530" min="0" max="65535" />
+          </div>
+          <div class="control-group">
+            <label>Page Size (bytes)</label>
+            <select id="pageSize">
+              <option value="256">256 B (8-bit offset)</option>
+              <option value="512">512 B (9-bit offset)</option>
+              <option value="1024" selected>1 KB (10-bit offset)</option>
+              <option value="4096">4 KB (12-bit offset)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="translate()">Translate →</button>
+          <button class="btn btn-secondary" onclick="randomAddr()">Random</button>
+        </div>
+
+        <div class="sim-results" id="simResults" style="display:none;">
+          <div class="result-panel">
+            <h4>Virtual Address Breakdown</h4>
+            <div class="addr-display virtual" id="dispVirt"></div>
+            <div class="breakdown" id="dispVirtBreak"></div>
+          </div>
+          <div class="result-panel">
+            <h4>Physical Address Result</h4>
+            <div class="addr-display" id="dispPhys"></div>
+            <div class="breakdown" id="dispPhysBreak"></div>
+            <div id="statusPill"></div>
+          </div>
+        </div>
+
+        <!-- Page Table Display -->
+        <div style="margin-top:1.5rem;">
+          <div style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.75rem;">
+            Page Table (process #42)
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="pt-table" id="ptTable">
+              <thead>
+                <tr>
+                  <th>Page #</th>
+                  <th>Frame #</th>
+                  <th>Valid</th>
+                  <th>Dirty</th>
+                  <th>Referenced</th>
+                  <th>Physical Base Addr</th>
+                </tr>
+              </thead>
+              <tbody id="ptBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. PAGE FAULT -->
+  <section>
+    <div class="section-title">04 — Page Fault Handling</div>
+    <div class="theory-grid">
+      <div class="card">
+        <h3>What Triggers a Page Fault?</h3>
+        <p>When the CPU tries to access a virtual address whose valid bit in the page table is <strong style="color:var(--red)">0</strong>, the hardware raises a page fault interrupt. This means the page is not currently loaded in RAM — it lives on disk (swap space).</p>
+      </div>
+      <div class="card">
+        <h3>The Steps to Handle It</h3>
+        <div class="fault-steps" style="margin-top:0.5rem;">
+          <div class="fault-step">
+            <div class="step-num">1</div>
+            <div class="step-text">CPU triggers <b>page fault trap</b> → control goes to OS kernel.</div>
+          </div>
+          <div class="fault-step">
+            <div class="step-num">2</div>
+            <div class="step-text">OS checks if the address is <b>valid</b> (in the process's virtual space). If not → <b>segfault</b>.</div>
+          </div>
+          <div class="fault-step">
+            <div class="step-num">3</div>
+            <div class="step-text">OS finds a <b>free frame</b> in RAM (or evicts one using a replacement algorithm like LRU).</div>
+          </div>
+          <div class="fault-step">
+            <div class="step-num">4</div>
+            <div class="step-text">OS reads the <b>page from disk</b> into the free frame.</div>
+          </div>
+          <div class="fault-step">
+            <div class="step-num">5</div>
+            <div class="step-text">OS <b>updates the page table</b>: sets frame number, valid bit = 1.</div>
+          </div>
+          <div class="fault-step">
+            <div class="step-num">6</div>
+            <div class="step-text">Process <b>resumes</b> at the faulting instruction, which now succeeds.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SUMMARY -->
+  <section>
+    <div class="section-title">05 — Summary &amp; Key Takeaways</div>
+    <div class="theory-grid">
+      <div class="card">
+        <h3>Advantages of Paging</h3>
+        <p>
+          ✦ No external fragmentation (fixed-size pages fit any frame)<br><br>
+          ✦ Processes can be larger than physical RAM<br><br>
+          ✦ Easy memory protection (each page table entry has protection bits)<br><br>
+          ✦ Efficient sharing (multiple processes can map the same physical frame)
+        </p>
+      </div>
+      <div class="card">
+        <h3>Disadvantages / Trade-offs</h3>
+        <p>
+          ✦ Internal fragmentation in the last page of a process<br><br>
+          ✦ Page table itself consumes memory (mitigated by multi-level tables)<br><br>
+          ✦ Two memory accesses per instruction without TLB (page table + data)<br><br>
+          ✦ Page faults cause expensive disk I/O (thrashing if RAM is too small)
+        </p>
+      </div>
+      <div class="card wide">
+        <h3>The Formula to Remember</h3>
+        <div class="formula">
+          Given: Virtual Address (VA), Page Size (P)<br><br>
+          Page Number  (p) = VA  ÷  P  &nbsp;(integer division)<br>
+          Page Offset  (d) = VA mod P<br><br>
+          Physical Address = (PageTable[p].frame × P) + d<br><br>
+          Number of pages  = Virtual Address Space Size ÷ Page Size<br>
+          Number of frames = Physical Memory Size ÷ Page Size
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>Topic #14 — Virtual Memory &amp; Paging &nbsp;·&nbsp; <span>Maad Kamal Mawlwd</span> &nbsp;·&nbsp; ID: <span>12300117</span></div>
+    <div style="margin-top:0.35rem; color: rgba(100,116,139,0.5);">Operating Systems Interactive Portfolio · 2026</div>
+  </footer>
+
+</div>
+
+<script>
+  // ── Page Table Data ──
+  // 16 pages, some invalid (simulating not in RAM)
+  const PAGE_TABLE = [
+    { frame: 5,  valid: true,  dirty: false, ref: true  },
+    { frame: 12, valid: true,  dirty: true,  ref: true  },
+    { frame: 3,  valid: false, dirty: false, ref: false },
+    { frame: 8,  valid: true,  dirty: false, ref: true  },
+    { frame: 1,  valid: true,  dirty: true,  ref: false },
+    { frame: 0,  valid: false, dirty: false, ref: false },
+    { frame: 9,  valid: true,  dirty: false, ref: true  },
+    { frame: 6,  valid: true,  dirty: false, ref: false },
+    { frame: 14, valid: false, dirty: false, ref: false },
+    { frame: 2,  valid: true,  dirty: true,  ref: true  },
+    { frame: 11, valid: true,  dirty: false, ref: false },
+    { frame: 7,  valid: false, dirty: false, ref: false },
+    { frame: 4,  valid: true,  dirty: false, ref: true  },
+    { frame: 10, valid: true,  dirty: true,  ref: false },
+    { frame: 13, valid: false, dirty: false, ref: false },
+    { frame: 15, valid: true,  dirty: false, ref: true  },
+  ];
+
+  function buildTable(pageSize, highlightPage) {
+    const tbody = document.getElementById('ptBody');
+    tbody.innerHTML = '';
+    PAGE_TABLE.forEach((entry, i) => {
+      const row = document.createElement('tr');
+      if (i === highlightPage) row.classList.add('active-row');
+      const physBase = entry.valid ? entry.frame * pageSize : '—';
+      row.innerHTML = `
+        <td>Page ${i} <span style="color:var(--muted);font-size:0.65rem;">(0x${i.toString(16).padStart(2,'0')})</span></td>
+        <td>${entry.valid ? `Frame ${entry.frame}` : '<span style="color:var(--red)">—</span>'}</td>
+        <td class="${entry.valid ? 'valid-yes' : 'valid-no'}">${entry.valid ? '✓ YES' : '✗ NO'}</td>
+        <td style="color:${entry.dirty ? 'var(--yellow)' : 'var(--muted)'}">${entry.dirty ? 'YES' : 'no'}</td>
+        <td style="color:${entry.ref ? 'var(--accent)' : 'var(--muted)'}">${entry.ref ? 'YES' : 'no'}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">${entry.valid ? '0x' + (physBase).toString(16).padStart(4,'0').toUpperCase() : '<span style="color:var(--red)">PAGE FAULT</span>'}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  function translate() {
+    const va = parseInt(document.getElementById('virtAddr').value);
+    const ps = parseInt(document.getElementById('pageSize').value);
+
+    if (isNaN(va) || va < 0) {
+      alert('Please enter a valid virtual address (0 or greater).');
+      return;
+    }
+
+    const pageNum = Math.floor(va / ps);
+    const offset  = va % ps;
+
+    document.getElementById('simResults').style.display = 'grid';
+
+    // Virtual breakdown
+    document.getElementById('dispVirt').textContent = `VA: ${va} (0x${va.toString(16).toUpperCase()})`;
+    document.getElementById('dispVirtBreak').innerHTML =
+      `Page Number : <span class="b-page">${pageNum}</span><br>` +
+      `Page Offset : <span class="b-offset">${offset}</span><br>` +
+      `Page Size   : ${ps} bytes`;
+
+    if (pageNum >= PAGE_TABLE.length) {
+      document.getElementById('dispPhys').textContent = 'SEGFAULT';
+      document.getElementById('dispPhys').className = 'addr-display fault';
+      document.getElementById('dispPhysBreak').innerHTML =
+        `Page ${pageNum} is outside the process's virtual space.`;
+      document.getElementById('statusPill').innerHTML =
+        '<span class="status-pill status-fault">SEGMENTATION FAULT</span>';
+      buildTable(ps, -1);
+      return;
+    }
+
+    const entry = PAGE_TABLE[pageNum];
+    buildTable(ps, pageNum);
+
+    if (!entry.valid) {
+      document.getElementById('dispPhys').textContent = 'PAGE FAULT';
+      document.getElementById('dispPhys').className = 'addr-display fault';
+      document.getElementById('dispPhysBreak').innerHTML =
+        `Page <span class="b-page">${pageNum}</span> is NOT in RAM (valid bit = 0).<br>` +
+        `OS must load it from disk into a free frame.`;
+      document.getElementById('statusPill').innerHTML =
+        '<span class="status-pill status-fault">PAGE FAULT — OS HANDLES</span>';
+    } else {
+      const pa = entry.frame * ps + offset;
+      document.getElementById('dispPhys').textContent = `PA: ${pa} (0x${pa.toString(16).toUpperCase()})`;
+      document.getElementById('dispPhys').className = 'addr-display physical';
+      document.getElementById('dispPhysBreak').innerHTML =
+        `Frame Number : <span class="b-frame">${entry.frame}</span><br>` +
+        `Offset       : <span class="b-offset">${offset}</span><br>` +
+        `Calculation  : ${entry.frame} × ${ps} + ${offset} = <span class="b-frame">${pa}</span>`;
+      document.getElementById('statusPill').innerHTML =
+        '<span class="status-pill status-hit">TLB / PAGE TABLE HIT ✓</span>';
+    }
+  }
+
+  function randomAddr() {
+    const ps = parseInt(document.getElementById('pageSize').value);
+    const max = PAGE_TABLE.length * ps - 1;
+    document.getElementById('virtAddr').value = Math.floor(Math.random() * (max + 200));
+    translate();
+  }
+
+  // Build table on load
+  buildTable(1024, -1);
+</script>
+</body>
+</html>

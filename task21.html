@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OS Concept: User Mode vs Kernel Mode</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        oklch(12% 0.008 240);
+      --surface:   oklch(17% 0.010 240);
+      --surface-2: oklch(21% 0.012 240);
+      --border:    oklch(30% 0.012 240);
+
+      --user:   oklch(62% 0.18 240);
+      --user-dim: oklch(25% 0.08 240);
+      --kernel: oklch(62% 0.20 20);
+      --kernel-dim: oklch(22% 0.08 20);
+      --boundary: oklch(78% 0.17 70);
+      --boundary-dim: oklch(24% 0.07 70);
+
+      --text-1: oklch(96% 0.005 240);
+      --text-2: oklch(66% 0.010 240);
+      --text-3: oklch(46% 0.010 240);
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 3rem 1.5rem 4rem;
+      line-height: 1.6;
+    }
+
+    .page { max-width: 1080px; width: 100%; }
+
+    /* ── Header ── */
+    .header {
+      margin-bottom: 3rem;
+      text-align: center;
+    }
+
+    .tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--boundary);
+      background: var(--boundary-dim);
+      padding: 0.3rem 0.75rem;
+      border-radius: 100px;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: var(--text-1);
+      margin-bottom: 0.9rem;
+    }
+
+    .header p {
+      max-width: 56ch;
+      margin: 0 auto;
+      color: var(--text-2);
+      font-size: 0.96rem;
+      line-height: 1.7;
+    }
+
+    em { font-style: normal; }
+    .hl-user   { color: var(--user); font-weight: 500; }
+    .hl-kernel { color: var(--kernel); font-weight: 500; }
+
+    /* ── Two-column grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* ── Panel base ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 1rem 1.25rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .panel-title {
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
+    }
+
+    /* ── Status pill ── */
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 100px;
+      border: 1px solid;
+      transition: color 0.35s, border-color 0.35s, background 0.35s;
+    }
+
+    .status-pill .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ── Visualizer ── */
+    .visualizer-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      min-height: 420px;
+    }
+
+    .zone {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px dashed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      position: relative;
+    }
+
+    .zone-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      text-align: center;
+    }
+
+    .zone-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+
+    .zone-sub {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      opacity: 0.6;
+    }
+
+    .zone-user {
+      border-color: oklch(62% 0.18 240 / 0.30);
+      background: oklch(62% 0.18 240 / 0.04);
+      color: var(--user);
+      min-height: 160px;
+    }
+
+    .zone-kernel {
+      border-color: oklch(62% 0.20 20 / 0.30);
+      background: oklch(62% 0.20 20 / 0.04);
+      color: var(--kernel);
+      min-height: 160px;
+    }
+
+    /* ── Boundary strip ── */
+    .boundary {
+      height: 36px;
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      background: oklch(78% 0.17 70 / 0.10);
+      border-top: 1px solid oklch(78% 0.17 70 / 0.25);
+      border-bottom: 1px solid oklch(78% 0.17 70 / 0.25);
+      color: var(--boundary);
+    }
+
+    .boundary-text {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 500;
+    }
+
+    .boundary-icon {
+      font-size: 0.7rem;
+      opacity: 0.7;
+    }
+
+    /* ── Thread (process dot) ── */
+    .zones-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .thread {
+      position: absolute;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      transition:
+        top 0.65s cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 0.3s,
+        box-shadow 0.3s,
+        transform 0.3s,
+        opacity 0.3s;
+    }
+
+    /* ── Dashboard ── */
+    .dashboard { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ── Controls ── */
+    .controls-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .action-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      cursor: pointer;
+      text-align: left;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto auto;
+      column-gap: 0.75rem;
+      row-gap: 0.2rem;
+      align-items: start;
+      color: var(--text-1);
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .action-btn:hover:not(:disabled) {
+      background: oklch(25% 0.014 240);
+      border-color: oklch(38% 0.016 240);
+      transform: translateY(-1px);
+    }
+
+    .action-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .btn-icon {
+      grid-row: 1 / 3;
+      grid-column: 1;
+      align-self: center;
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .btn-icon-user   { background: var(--user-dim); color: var(--user); }
+    .btn-icon-sys    { background: var(--boundary-dim); color: var(--boundary); }
+    .btn-icon-illegal { background: var(--kernel-dim); color: var(--kernel); }
+
+    .btn-num {
+      grid-column: 1;
+      grid-row: 1;
+      display: none;
+    }
+
+    .btn-title {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-1);
+      line-height: 1.3;
+    }
+
+    .btn-desc {
+      font-size: 0.75rem;
+      color: var(--text-2);
+      line-height: 1.4;
+    }
+
+    /* ── Terminal ── */
+    .terminal-body {
+      padding: 1rem 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      min-height: 180px;
+      max-height: 240px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .log-line { display: flex; gap: 0.5rem; line-height: 1.5; }
+    .log-ts   { color: var(--text-3); flex-shrink: 0; }
+    .log-user   { color: var(--user); }
+    .log-kernel { color: var(--kernel); }
+    .log-sys    { color: var(--boundary); }
+    .log-ok     { color: oklch(70% 0.16 155); }
+    .log-error  { color: var(--kernel); font-weight: 500; }
+
+    /* ── Responsive ── */
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+      body { padding: 2rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="header">
+    <div class="tag">CPU Privilege Rings</div>
+    <h1>Dual-Mode Operation</h1>
+    <p>
+      Modern CPUs enforce hardware privilege rings to protect the OS kernel.
+      Applications run in <em class="hl-user">User Mode (Ring 3)</em> with restricted access.
+      To interact with hardware, they issue a system call to enter
+      <em class="hl-kernel">Kernel Mode (Ring 0)</em>.
+    </p>
+  </header>
+
+  <div class="grid">
+
+    <!-- Left: Visualizer -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Architecture View</span>
+        <div class="status-pill" id="statusPill">
+          <span class="dot"></span>
+          <span id="statusText">User Mode · Ring 3</span>
+        </div>
+      </div>
+      <div class="visualizer-body">
+        <div class="zones-wrap" id="zonesWrap">
+          <div class="zone zone-user" id="zUser">
+            <div class="zone-label">
+              <span class="zone-name">User Space</span>
+              <span class="zone-sub">ring 3 · restricted</span>
+            </div>
+          </div>
+          <div class="boundary" id="zBoundary">
+            <span class="boundary-icon">⇅</span>
+            <span class="boundary-text">System Call Interface · TRAP</span>
+          </div>
+          <div class="zone zone-kernel" id="zKernel">
+            <div class="zone-label">
+              <span class="zone-name">Kernel Space</span>
+              <span class="zone-sub">ring 0 · privileged</span>
+            </div>
+          </div>
+          <div class="thread" id="thread"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Controls + Terminal -->
+    <div class="dashboard">
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Actions</span>
+        </div>
+        <div class="controls-body">
+
+          <button class="action-btn" onclick="runSafeProcess()">
+            <div class="btn-icon btn-icon-user">⚙</div>
+            <span class="btn-title">Standard CPU Calculation</span>
+            <span class="btn-desc">Internal app logic — stays in User Mode the entire time.</span>
+          </button>
+
+          <button class="action-btn" onclick="runSystemCall()">
+            <div class="btn-icon btn-icon-sys">⬇</div>
+            <span class="btn-title">Request Hardware (Read Disk)</span>
+            <span class="btn-desc">Requires OS mediation — safely crosses the boundary to Kernel Mode.</span>
+          </button>
+
+          <button class="action-btn" onclick="runIllegalAccess()">
+            <div class="btn-icon btn-icon-illegal">✕</div>
+            <span class="btn-title">Direct Hardware Access</span>
+            <span class="btn-desc">App tries to bypass the OS — CPU exception and process termination.</span>
+          </button>
+
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">System Log</span>
+        </div>
+        <div class="terminal-body" id="terminal"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const thread   = document.getElementById('thread');
+  const terminal = document.getElementById('terminal');
+  const pill     = document.getElementById('statusPill');
+  const pillTxt  = document.getElementById('statusText');
+  const buttons  = document.querySelectorAll('.action-btn');
+  const zonesWrap= document.getElementById('zonesWrap');
+  const zUser    = document.getElementById('zUser');
+  const zBoundary= document.getElementById('zBoundary');
+  const zKernel  = document.getElementById('zKernel');
+
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  function toggleButtons(off) { buttons.forEach(b => b.disabled = off); }
+
+  function log(msg, type = 'ok') {
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    const ts = new Date().toLocaleTimeString([], { hour12: false });
+    line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-${type}">${msg}</span>`;
+    terminal.appendChild(line);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  function center(el) {
+    const wrapRect = zonesWrap.getBoundingClientRect();
+    const elRect   = el.getBoundingClientRect();
+    return (elRect.top - wrapRect.top) + elRect.height / 2;
+  }
+
+  function moveThread(el) { thread.style.top = center(el) + 'px'; }
+
+  function setMode(mode) {
+    const colors = {
+      user:   { pill: 'var(--user)',     bg: 'oklch(62% 0.18 240 / 0.12)', label: 'User Mode · Ring 3',   t: 'var(--user)',   s: '0 0 12px oklch(62% 0.18 240 / 0.6)' },
+      kernel: { pill: 'var(--kernel)',   bg: 'oklch(62% 0.20 20  / 0.12)', label: 'Kernel Mode · Ring 0', t: 'var(--kernel)', s: '0 0 18px oklch(62% 0.20 20  / 0.7)' },
+    };
+    const c = colors[mode];
+    pill.style.color       = c.pill;
+    pill.style.borderColor = c.pill;
+    pill.style.background  = c.bg;
+    pillTxt.textContent    = c.label;
+    thread.style.backgroundColor = c.t;
+    thread.style.boxShadow       = c.s;
+  }
+
+  window.addEventListener('load', () => {
+    moveThread(zUser);
+    setMode('user');
+    log('System booted — CPU initialized in User Mode.', 'ok');
+  });
+  window.addEventListener('resize', () => moveThread(zUser));
+
+  async function runSafeProcess() {
+    toggleButtons(true);
+    log('app: executing mathematical computation…', 'user');
+    thread.style.transform = 'translate(-50%, -50%) scale(1.5)';
+    await wait(1100);
+    log('app: calculation complete — no syscall required.', 'ok');
+    thread.style.transform = 'translate(-50%, -50%) scale(1)';
+    toggleButtons(false);
+  }
+
+  async function runSystemCall() {
+    toggleButtons(true);
+    log('app: read() called — disk access requested.', 'user');
+    moveThread(zBoundary);
+    thread.style.backgroundColor = 'var(--text-1)';
+    thread.style.boxShadow = '0 0 14px oklch(96% 0.005 240 / 0.5)';
+    await wait(650);
+    log('cpu: TRAP — initiating context switch to ring 0.', 'sys');
+    setMode('kernel');
+    moveThread(zKernel);
+    await wait(1100);
+    log('kernel: validating request, reading disk sectors.', 'kernel');
+    thread.style.transform = 'translate(-50%, -50%) scale(1.45)';
+    await wait(1400);
+    thread.style.transform = 'translate(-50%, -50%) scale(1)';
+    log('kernel: I/O complete — restoring user context.', 'sys');
+    setMode('user');
+    moveThread(zUser);
+    await wait(700);
+    log('app: data received, execution resumed.', 'ok');
+    toggleButtons(false);
+  }
+
+  async function runIllegalAccess() {
+    toggleButtons(true);
+    log('app: attempting direct GPU memory write.', 'user');
+    moveThread(zBoundary);
+    thread.style.backgroundColor = 'var(--text-1)';
+    await wait(650);
+    log('cpu: EXCEPTION — memory protection violation (ring 3→ring 0 bypass).', 'error');
+    thread.style.backgroundColor = 'var(--kernel)';
+    thread.style.boxShadow = '0 0 28px oklch(62% 0.20 20 / 0.8)';
+    thread.style.transform = 'translate(-50%, -50%) scale(2.8)';
+    thread.style.opacity   = '0';
+    await wait(700);
+    log('os: process terminated — Segmentation Fault (SIGSEGV).', 'error');
+    await wait(1400);
+    log('os: spawning replacement user process…', 'ok');
+    thread.style.transition = 'none';
+    moveThread(zUser);
+    thread.style.transform = 'translate(-50%, -50%) scale(1)';
+    setMode('user');
+    await wait(50);
+    thread.style.transition = 'top 0.65s cubic-bezier(0.4,0,0.2,1), background-color 0.3s, box-shadow 0.3s, transform 0.3s, opacity 0.3s';
+    thread.style.opacity = '1';
+    toggleButtons(false);
+  }
+</script>
+</body>
+</html>

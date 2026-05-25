@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linker & Loader — Explained and Demonstrated</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e0f14;
+      --bg2: #141620;
+      --bg3: #1c1f2e;
+      --surface: #1e2132;
+      --border: rgba(255,255,255,0.08);
+      --border-bright: rgba(255,255,255,0.15);
+      --text: #e8eaf2;
+      --muted: #8b8fa8;
+      --accent: #4f7fff;
+      --accent2: #7c3aed;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --teal: #06b6d4;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* ─── HERO ─── */
+    header {
+      position: relative;
+      text-align: center;
+      padding: 80px 24px 60px;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 30% 40%, rgba(79,127,255,0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 70% 60%, rgba(124,58,237,0.10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid rgba(79,127,255,0.3);
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    h1 span { color: var(--accent); }
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.05rem;
+      font-weight: 300;
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 0 24px 48px;
+    }
+    nav a {
+      font-family: var(--mono);
+      font-size: 12px;
+      text-decoration: none;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 8px 20px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+    nav a:hover { color: var(--text); border-color: var(--border-bright); background: var(--surface); }
+
+    /* ─── LAYOUT ─── */
+    main { max-width: 960px; margin: 0 auto; padding: 0 24px 100px; }
+
+    section { margin-bottom: 80px; }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+    }
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--accent);
+      font-family: var(--mono);
+      margin-bottom: 10px;
+    }
+
+    /* ─── DEFINITION CARDS ─── */
+    .def-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media(max-width:600px){ .def-grid { grid-template-columns: 1fr; } }
+
+    .def-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .def-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .def-card.linker::before { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+    .def-card.loader::before { background: linear-gradient(90deg, var(--teal), var(--green)); }
+
+    .def-card p { color: var(--muted); font-size: 0.95rem; line-height: 1.75; }
+    .def-card h3 { margin-bottom: 12px; }
+    .def-card.linker h3 { color: var(--accent); }
+    .def-card.loader h3 { color: var(--teal); }
+
+    /* ─── DIFF TABLE ─── */
+    .diff-table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    thead tr { background: var(--surface); }
+    thead th {
+      padding: 16px 24px;
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    thead th:first-child { color: var(--accent); }
+    thead th:last-child  { color: var(--teal); }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--bg3); }
+    tbody td { padding: 14px 24px; color: var(--muted); vertical-align: top; }
+    tbody td:first-child { color: var(--text); border-right: 1px solid var(--border); }
+
+    /* ─── FUNCTIONS ─── */
+    .fn-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .fn-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .fn-card .fn-icon {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 8px;
+    }
+    .fn-card h4 { font-size: 0.95rem; font-weight: 500; margin-bottom: 6px; }
+    .fn-card p  { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+    /* ─── SIMULATION ─── */
+    #sim-stage {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 24px 28px;
+    }
+    .sim-controls {
+      display: flex; flex-wrap: wrap;
+      gap: 10px; margin-bottom: 32px;
+      align-items: center;
+    }
+    .sim-controls span {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      margin-right: 4px;
+    }
+    button {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      padding: 9px 20px;
+      border-radius: 6px;
+      border: 1px solid var(--border-bright);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    button:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover { background: #3a6aee; border-color: #3a6aee; color: #fff; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Pipeline canvas area */
+    .pipeline {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    .pipe-col {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .pipe-col-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-align: center;
+    }
+    .pipe-arrow {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      margin-top: 28px;
+    }
+    .pipe-arrow svg { flex-shrink: 0; }
+
+    .file-block {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      min-width: 110px;
+      text-align: center;
+      position: relative;
+      transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .file-block .ext {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .file-block .name { font-weight: 600; font-size: 13px; }
+    .file-block.src  { border-color: rgba(124,58,237,0.4); }
+    .file-block.src  .ext { color: var(--accent2); }
+    .file-block.obj  { border-color: rgba(79,127,255,0.35); }
+    .file-block.obj  .ext { color: var(--accent); }
+    .file-block.lib  { border-color: rgba(245,158,11,0.4); }
+    .file-block.lib  .ext { color: var(--amber); }
+    .file-block.exec { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.05); }
+    .file-block.exec .ext { color: var(--green); }
+    .file-block.mem  { border-color: rgba(6,182,212,0.4); background: rgba(6,182,212,0.05); }
+    .file-block.mem  .ext { color: var(--teal); }
+
+    .process-box {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: 10px;
+      padding: 14px 20px;
+      text-align: center;
+      min-width: 110px;
+      transition: all 0.35s;
+    }
+    .process-box .pb-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .process-box .pb-name {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .process-box.linker-box { border-color: rgba(79,127,255,0.5); }
+    .process-box.linker-box .pb-name { color: var(--accent); }
+    .process-box.loader-box { border-color: rgba(6,182,212,0.5); }
+    .process-box.loader-box .pb-name { color: var(--teal); }
+
+    /* Animation states */
+    .file-block.active {
+      transform: scale(1.06);
+      box-shadow: 0 0 18px rgba(79,127,255,0.3);
+      border-color: var(--accent) !important;
+    }
+    .file-block.exec.active {
+      box-shadow: 0 0 18px rgba(34,197,94,0.35);
+      border-color: var(--green) !important;
+    }
+    .file-block.mem.active {
+      box-shadow: 0 0 18px rgba(6,182,212,0.35);
+      border-color: var(--teal) !important;
+    }
+    .process-box.active {
+      box-shadow: 0 0 20px rgba(79,127,255,0.25);
+    }
+    .process-box.linker-box.active { border-color: var(--accent); }
+    .process-box.loader-box.active { border-color: var(--teal); }
+
+    .pipe-arrow.active svg path { stroke: var(--accent); }
+
+    /* ─── LOG ─── */
+    #sim-log {
+      margin-top: 28px;
+      background: #0a0c12;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.8;
+      min-height: 80px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .log-entry { display: flex; gap: 10px; }
+    .log-entry .log-time { color: var(--muted); flex-shrink: 0; }
+    .log-entry.log-info   .log-msg { color: var(--accent); }
+    .log-entry.log-link   .log-msg { color: var(--accent2); }
+    .log-entry.log-load   .log-msg { color: var(--teal); }
+    .log-entry.log-exec   .log-msg { color: var(--green); }
+    .log-entry.log-warn   .log-msg { color: var(--amber); }
+    .log-entry.log-ok     .log-msg { color: var(--green); }
+
+    /* ─── MEMORY MAP ─── */
+    #mem-map {
+      margin-top: 28px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: none;
+    }
+    #mem-map.visible { display: block; }
+    .mem-header {
+      background: var(--surface);
+      padding: 10px 18px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 32px;
+    }
+    .mem-row {
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+    .mem-row:last-child { border-bottom: none; }
+    .mem-addr {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      width: 90px;
+      padding: 10px 16px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+    }
+    .mem-seg {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px 16px;
+      flex: 1;
+      font-weight: 600;
+    }
+    .mem-size {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      padding: 10px 16px;
+      width: 80px;
+      flex-shrink: 0;
+    }
+    .mem-bar {
+      width: 140px;
+      height: 10px;
+      border-radius: 3px;
+      margin-right: 16px;
+      flex-shrink: 0;
+    }
+    .seg-text  { color: var(--accent);  }  .bar-text  { background: var(--accent); }
+    .seg-data  { color: var(--amber);   }  .bar-data  { background: var(--amber); }
+    .seg-bss   { color: var(--accent2); }  .bar-bss   { background: var(--accent2); }
+    .seg-heap  { color: var(--green);   }  .bar-heap  { background: var(--green); }
+    .seg-stack { color: var(--red);     }  .bar-stack { background: var(--red); }
+
+    /* ─── STEP INDICATOR ─── */
+    .steps {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .step-dot {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      transition: all 0.3s;
+    }
+    .step-dot.done  { border-color: rgba(79,127,255,0.4); color: var(--accent); background: rgba(79,127,255,0.08); }
+    .step-dot.active { border-color: var(--accent); color: var(--accent); background: rgba(79,127,255,0.15); font-weight: 600; }
+
+    /* ─── FOOTER ─── */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-family: var(--mono);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    
+    <h1>Linker &amp; <span>Loader</span><br>Explained</h1>
+    <p class="subtitle">How source code travels from text files to running processes — step by step.</p>
+  </header>
+
+  <nav>
+    <a href="#definition">01 — Definitions</a>
+    <a href="#differences">02 — Differences</a>
+    <a href="#simulation">03 — Simulation</a>
+    <a href="#functions">04 — Functions</a>
+  </nav>
+
+  <main>
+
+    <!-- ── 01 DEFINITIONS ── -->
+    <section id="definition">
+      <p class="section-label">01 — Definitions</p>
+      <h2>What are they?</h2>
+      <div class="def-grid">
+        <div class="def-card linker">
+          <h3>Linker</h3>
+          <p>A system tool that takes multiple <strong style="color:var(--text)">object files</strong> (.o) produced by the compiler and combines them into a single executable. It resolves all symbolic references when file A calls a function defined in file B, the linker finds that function's address and patches it in. It also appends any required <strong style="color:var(--text)">static libraries</strong>, strips dead code, and assigns final virtual memory addresses to every symbol.</p>
+        </div>
+        <div class="def-card loader">
+          <h3>Loader</h3>
+          <p>Part of the operating system that takes a finished <strong style="color:var(--text)">executable file</strong> and brings it to life. It reads the file's segments (code, data, BSS), allocates virtual memory pages, copies each segment into the right location, resolves any remaining <strong style="color:var(--text)">dynamic library</strong> references at runtime, and finally hands control to the program's entry point (<code style="color:var(--teal);font-family:var(--mono);font-size:0.85em">_start</code> or <code style="color:var(--teal);font-family:var(--mono);font-size:0.85em">main</code>).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 02 DIFFERENCES ── -->
+    <section id="differences">
+      <p class="section-label">02 — Differences</p>
+      <h2>Side by side</h2>
+      <div class="diff-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Linker</th>
+              <th>Loader</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Runs at <strong>compile time</strong> (before the program executes)</td>
+              <td>Runs at <strong>runtime</strong> (when you launch the program)</td>
+            </tr>
+            <tr>
+              <td>Input: multiple object files (.o) and libraries (.a / .lib)</td>
+              <td>Input: a single fully linked executable (.exe / ELF)</td>
+            </tr>
+            <tr>
+              <td>Output: a single executable or shared library</td>
+              <td>Output: a live, running process in memory</td>
+            </tr>
+            <tr>
+              <td>Resolves <strong>symbolic references</strong> between translation units</td>
+              <td>Resolves <strong>dynamic library</strong> calls (e.g. libc, .dll, .so)</td>
+            </tr>
+            <tr>
+              <td>Performs <strong>static relocation</strong> — fixes addresses in the file</td>
+              <td>Performs <strong>load-time relocation</strong> — adjusts addresses for ASLR</td>
+            </tr>
+            <tr>
+              <td>Merges .text, .data, .bss sections from all object files</td>
+              <td>Maps those merged sections into virtual memory pages</td>
+            </tr>
+            <tr>
+              <td>Produces the program headers and segment layout in the file</td>
+              <td>Reads program headers to know <em>what</em> to put <em>where</em></td>
+            </tr>
+            <tr>
+              <td>Can perform <strong>link-time optimisation</strong> (LTO) across files</td>
+              <td>Can perform <strong>dynamic optimisation</strong> via JIT in managed runtimes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── 03 SIMULATION ── -->
+    <section id="simulation">
+      <p class="section-label">03 — Simulation</p>
+      <h2>Interactive pipeline</h2>
+
+      <div id="sim-stage">
+        <div class="steps" id="step-dots">
+          <div class="step-dot" id="dot-0">Compile</div>
+          <div class="step-dot" id="dot-1">Link</div>
+          <div class="step-dot" id="dot-2">Load</div>
+          <div class="step-dot" id="dot-3">Execute</div>
+        </div>
+
+        <div class="sim-controls">
+          <span>Controls —</span>
+          <button class="primary" id="btn-next" onclick="stepSim()">Next step ›</button>
+          <button id="btn-reset" onclick="resetSim()">Reset</button>
+          <button onclick="runAll()">Run all</button>
+        </div>
+
+        <!-- Pipeline visual -->
+        <div class="pipeline" id="pipeline">
+
+          <!-- Source files -->
+          <div class="pipe-col">
+            <div class="pipe-col-label">Source</div>
+            <div class="file-block src" id="f-main">
+              <div class="ext">.c</div>
+              <div class="name">main.c</div>
+            </div>
+            <div class="file-block src" id="f-utils">
+              <div class="ext">.c</div>
+              <div class="name">utils.c</div>
+            </div>
+            <div class="file-block src" id="f-math">
+              <div class="ext">.c</div>
+              <div class="name">math.c</div>
+            </div>
+          </div>
+
+          <div class="pipe-arrow" id="arr-compile">
+            <svg width="28" height="16" viewBox="0 0 28 16" fill="none">
+              <path d="M0 8 H22 M16 2 L24 8 L16 14" stroke="var(--border-bright)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Compiler (conceptual) -->
+          <div class="pipe-col">
+            <div class="pipe-col-label">Compiler</div>
+            <div class="process-box" id="box-compiler" style="margin-top:6px">
+              <div class="pb-label">gcc / clang</div>
+              <div class="pb-name" style="color:var(--accent2);">Compile</div>
+            </div>
+          </div>
+
+          <div class="pipe-arrow" id="arr-obj">
+            <svg width="28" height="16" viewBox="0 0 28 16" fill="none">
+              <path d="M0 8 H22 M16 2 L24 8 L16 14" stroke="var(--border-bright)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Object files -->
+          <div class="pipe-col">
+            <div class="pipe-col-label">Object files</div>
+            <div class="file-block obj" id="o-main">
+              <div class="ext">.o</div>
+              <div class="name">main.o</div>
+            </div>
+            <div class="file-block obj" id="o-utils">
+              <div class="ext">.o</div>
+              <div class="name">utils.o</div>
+            </div>
+            <div class="file-block obj" id="o-math">
+              <div class="ext">.o</div>
+              <div class="name">math.o</div>
+            </div>
+            <div class="file-block lib" id="f-libc" style="margin-top:4px">
+              <div class="ext">.a</div>
+              <div class="name">libc.a</div>
+            </div>
+          </div>
+
+          <div class="pipe-arrow" id="arr-link">
+            <svg width="28" height="16" viewBox="0 0 28 16" fill="none">
+              <path d="M0 8 H22 M16 2 L24 8 L16 14" stroke="var(--border-bright)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Linker -->
+          <div class="pipe-col">
+            <div class="pipe-col-label">Linker</div>
+            <div class="process-box linker-box" id="box-linker" style="margin-top:24px">
+              <div class="pb-label">ld</div>
+              <div class="pb-name">Linker</div>
+            </div>
+          </div>
+
+          <div class="pipe-arrow" id="arr-exec">
+            <svg width="28" height="16" viewBox="0 0 28 16" fill="none">
+              <path d="M0 8 H22 M16 2 L24 8 L16 14" stroke="var(--border-bright)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Executable -->
+          <div class="pipe-col">
+            <div class="pipe-col-label">Executable</div>
+            <div class="file-block exec" id="f-exe" style="margin-top:24px">
+              <div class="ext">ELF / .exe</div>
+              <div class="name">program</div>
+            </div>
+          </div>
+
+          <div class="pipe-arrow" id="arr-load">
+            <svg width="28" height="16" viewBox="0 0 28 16" fill="none">
+              <path d="M0 8 H22 M16 2 L24 8 L16 14" stroke="var(--border-bright)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Loader -->
+          <div class="pipe-col">
+            <div class="pipe-col-label">Loader (OS)</div>
+            <div class="process-box loader-box" id="box-loader" style="margin-top:24px">
+              <div class="pb-label">execve()</div>
+              <div class="pb-name">Loader</div>
+            </div>
+          </div>
+
+          <div class="pipe-arrow" id="arr-mem">
+            <svg width="28" height="16" viewBox="0 0 28 16" fill="none">
+              <path d="M0 8 H22 M16 2 L24 8 L16 14" stroke="var(--border-bright)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Memory -->
+          <div class="pipe-col">
+            <div class="pipe-col-label">Memory</div>
+            <div class="file-block mem" id="f-mem" style="margin-top:24px">
+              <div class="ext">RAM</div>
+              <div class="name">Process</div>
+            </div>
+          </div>
+
+        </div><!-- /pipeline -->
+
+        <!-- Log output -->
+        <div id="sim-log">
+          <div class="log-entry log-info"><span class="log-time">$</span><span class="log-msg">Press "Next step" to begin the simulation.</span></div>
+        </div>
+
+        <!-- Memory map -->
+        <div id="mem-map">
+          <div class="mem-header">
+            <span>Virtual memory layout</span>
+            <span>process &lt;program&gt;</span>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0x400000</div>
+            <div class="mem-seg seg-text">.text (code)</div>
+            <div class="mem-size">48 KB</div>
+            <div class="mem-bar bar-text" style="width:110px"></div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0x40c000</div>
+            <div class="mem-seg seg-data">.data (init vars)</div>
+            <div class="mem-size">8 KB</div>
+            <div class="mem-bar bar-data" style="width:40px"></div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0x40e000</div>
+            <div class="mem-seg seg-bss">.bss (zero vars)</div>
+            <div class="mem-size">4 KB</div>
+            <div class="mem-bar bar-bss" style="width:24px"></div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0x600000</div>
+            <div class="mem-seg seg-heap">heap ↑</div>
+            <div class="mem-size">dynamic</div>
+            <div class="mem-bar bar-heap" style="width:60px"></div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0x7fff…</div>
+            <div class="mem-seg seg-stack">stack ↓</div>
+            <div class="mem-size">8 MB</div>
+            <div class="mem-bar bar-stack" style="width:80px"></div>
+          </div>
+        </div>
+
+      </div><!-- /sim-stage -->
+    </section>
+
+    <!-- ── 04 FUNCTIONS ── -->
+    <section id="functions">
+      <p class="section-label">04 — Functions</p>
+      <h2>Key operations</h2>
+
+      <h3 style="margin-bottom:16px;color:var(--accent);">// Linker functions</h3>
+      <div class="fn-grid" style="margin-bottom:36px">
+        <div class="fn-card">
+          <div class="fn-icon">01</div>
+          <h4>Symbol resolution</h4>
+          <p>Matches every undefined symbol reference in one .o file to a definition found in another .o or library file.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon">02</div>
+          <h4>Relocation</h4>
+          <p>Updates all placeholder addresses (0x0000) that the compiler emitted with correct final virtual addresses in the output binary.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon">03</div>
+          <h4>Section merging</h4>
+          <p>Combines all .text sections into one, all .data sections into one, and so on, building the final memory image of the program.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon">04</div>
+          <h4>Dead code elimination</h4>
+          <p>With LTO enabled, the linker can discard functions and data that are never referenced, shrinking the output binary.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon">05</div>
+          <h4>Library inclusion</h4>
+          <p>Searches static libraries (.a) for any object file that satisfies an unresolved symbol, pulling in only what is needed.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon">06</div>
+          <h4>Entry point setup</h4>
+          <p>Writes the address of the program entry point (<code style="font-family:var(--mono);font-size:0.82em">_start</code>) into the ELF header so the OS knows where execution begins.</p>
+        </div>
+      </div>
+
+      <h3 style="margin-bottom:16px;color:var(--teal);">// Loader functions</h3>
+      <div class="fn-grid">
+        <div class="fn-card">
+          <div class="fn-icon" style="color:var(--teal)">01</div>
+          <h4>Validation</h4>
+          <p>Reads the ELF/PE magic bytes and headers to confirm the file is a valid executable for the current architecture and OS.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon" style="color:var(--teal)">02</div>
+          <h4>Memory mapping</h4>
+          <p>Calls <code style="font-family:var(--mono);font-size:0.82em">mmap()</code> to create virtual memory regions for each segment, backed by the file on disk — no full copy needed initially.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon" style="color:var(--teal)">03</div>
+          <h4>Dynamic linking</h4>
+          <p>Invokes the dynamic linker (<code style="font-family:var(--mono);font-size:0.82em">ld.so</code>) to locate and map shared libraries, then fills the <strong>GOT/PLT</strong> with real addresses.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon" style="color:var(--teal)">04</div>
+          <h4>ASLR relocation</h4>
+          <p>With Address Space Layout Randomisation, the loader shifts all segment base addresses by a random offset at each launch for security.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon" style="color:var(--teal)">05</div>
+          <h4>Stack &amp; heap init</h4>
+          <p>Allocates the initial stack, pushes <code style="font-family:var(--mono);font-size:0.82em">argc</code>, <code style="font-family:var(--mono);font-size:0.82em">argv</code>, and environment pointers, and sets up the heap boundary for future <code style="font-family:var(--mono);font-size:0.82em">malloc</code> calls.</p>
+        </div>
+        <div class="fn-card">
+          <div class="fn-icon" style="color:var(--teal)">06</div>
+          <h4>Execution handoff</h4>
+          <p>Jumps to the binary's entry point. On Linux this is <code style="font-family:var(--mono);font-size:0.82em">_start</code>, which calls <code style="font-family:var(--mono);font-size:0.82em">__libc_start_main</code>, which then calls <code style="font-family:var(--mono);font-size:0.82em">main()</code>.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+ 
+
+  <script>
+    const steps = [
+      {
+        label: 'Compile',
+        dot: 0,
+        activate: ['f-main','f-utils','f-math','box-compiler'],
+        arrows: ['arr-compile'],
+        logs: [
+          { type:'info',  msg:'gcc -c main.c  → main.o' },
+          { type:'info',  msg:'gcc -c utils.c → utils.o' },
+          { type:'info',  msg:'gcc -c math.c  → math.o' },
+          { type:'warn',  msg:'main.o: undefined symbol printf (from libc)' },
+          { type:'warn',  msg:'main.o: undefined symbol add_vectors (from math.o)' },
+        ]
+      },
+      {
+        label: 'Link',
+        dot: 1,
+        activate: ['o-main','o-utils','o-math','f-libc','box-linker'],
+        arrows: ['arr-obj','arr-link'],
+        logs: [
+          { type:'link', msg:'ld: merging .text sections ...' },
+          { type:'link', msg:'ld: merging .data sections ...' },
+          { type:'link', msg:'ld: resolving symbol add_vectors → math.o:0x48' },
+          { type:'link', msg:'ld: resolving symbol printf → libc.a:printf.o' },
+          { type:'link', msg:'ld: relocation complete — all 14 symbols resolved' },
+          { type:'ok',   msg:'ld: output → ./program  (ELF 64-bit, 84 KB)' },
+        ]
+      },
+      {
+        label: 'Load',
+        dot: 2,
+        activate: ['f-exe','box-loader'],
+        arrows: ['arr-exec','arr-load'],
+        logs: [
+          { type:'load', msg:'execve("./program", argv, envp)' },
+          { type:'load', msg:'Loader: reading ELF header — entry 0x401080' },
+          { type:'load', msg:'Loader: mmap LOAD[0] → 0x400000 (r-x, .text)' },
+          { type:'load', msg:'Loader: mmap LOAD[1] → 0x40c000 (rw-, .data/.bss)' },
+          { type:'load', msg:'Loader: ld.so resolving libm.so.6 → /lib/x86_64-linux-gnu/libm.so.6' },
+          { type:'load', msg:'Loader: ASLR offset applied: +0x55a3b0000000' },
+        ]
+      },
+      {
+        label: 'Execute',
+        dot: 3,
+        activate: ['f-mem'],
+        arrows: ['arr-mem'],
+        logs: [
+          { type:'exec', msg:'Process PID 4821 created' },
+          { type:'exec', msg:'_start → __libc_start_main → main()' },
+          { type:'exec', msg:'Stack initialised at 0x7ffd…, 8 MB limit' },
+          { type:'exec', msg:'Heap base at 0x600000' },
+          { type:'ok',   msg:'Program running ✓' },
+        ]
+      }
+    ];
+
+    let currentStep = -1;
+    let allActive = new Set();
+
+    function addLog(type, msg) {
+      const log = document.getElementById('sim-log');
+      const t = new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const div = document.createElement('div');
+      div.className = `log-entry log-${type}`;
+      div.innerHTML = `<span class="log-time">${t}</span><span class="log-msg">${msg}</span>`;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function setDot(i, state) {
+      const d = document.getElementById(`dot-${i}`);
+      if (!d) return;
+      d.className = 'step-dot ' + state;
+    }
+
+    function stepSim() {
+      currentStep++;
+      if (currentStep >= steps.length) { currentStep = steps.length; return; }
+
+      const s = steps[currentStep];
+
+      // Previous dot → done
+      if (currentStep > 0) setDot(currentStep - 1, 'done');
+      setDot(s.dot, 'active');
+
+      // Clear previous actives from the pipeline
+      allActive.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
+      allActive.clear();
+
+      // Activate new elements
+      s.activate.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.classList.add('active'); allActive.add(id); }
+      });
+      s.arrows.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('active');
+      });
+
+      // Log with small delay between entries
+      s.logs.forEach((l, i) => {
+        setTimeout(() => addLog(l.type, l.msg), i * 180);
+      });
+
+      // Show memory map on last step
+      if (currentStep === steps.length - 1) {
+        setTimeout(() => {
+          document.getElementById('mem-map').classList.add('visible');
+        }, s.logs.length * 180 + 200);
+        setDot(s.dot, 'done');
+        document.getElementById('btn-next').disabled = true;
+      }
+    }
+
+    function resetSim() {
+      currentStep = -1;
+      allActive.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
+      allActive.clear();
+      document.querySelectorAll('.pipe-arrow').forEach(a => a.classList.remove('active'));
+      for (let i = 0; i < 4; i++) setDot(i, '');
+      document.getElementById('sim-log').innerHTML =
+        '<div class="log-entry log-info"><span class="log-time">$</span><span class="log-msg">Press "Next step" to begin the simulation.</span></div>';
+      document.getElementById('mem-map').classList.remove('visible');
+      document.getElementById('btn-next').disabled = false;
+    }
+
+    function runAll() {
+      resetSim();
+      let delay = 0;
+      steps.forEach((s, i) => {
+        delay += i === 0 ? 100 : (steps[i-1].logs.length * 180 + 500);
+        setTimeout(stepSim, delay);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SJF CPU Scheduler</title>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+    }
+
+    body {
+        background: black;
+        color: white;
+        min-height: 100vh;
+        padding: 30px;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 15px;
+        font-size: 3rem;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: white;
+        margin-bottom: 35px;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: auto;
+    }
+
+    .card {
+        background: black;
+        padding: 25px;
+        border-radius: 16px;
+        margin-bottom: 25px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    }
+
+    h2 {
+        margin-bottom: 15px;
+        color: white;
+    }
+
+    p {
+        line-height: 1.7;
+        color: #e2e8f0;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    th, td {
+        border: 1px solid grey;
+        padding: 12px;
+        text-align: center;
+    }
+
+    th {
+        background: black;
+        color: white;
+    }
+
+    input {
+        width: 90px;
+        padding: 8px;
+        border-radius: 8px;
+        border: none;
+        text-align: center;
+    }
+
+    button {
+        margin-top: 20px;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 10px;
+        background: white;
+        color: black;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    button:hover {
+        background: #0ea5e9;
+    }
+
+    .gantt {
+        display: flex;
+        margin-top: 30px;
+        overflow-x: auto;
+    }
+
+    .block {
+        min-width: 100px;
+        padding: 20px;
+        text-align: center;
+        border-right: 2px solid white;
+        position: relative;
+        font-weight: bold;
+    }
+
+    .block span {
+        position: absolute;
+        bottom: -28px;
+        left: 0;
+        color: white;
+    }
+
+    .metrics {
+        margin-top: 25px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+    }
+
+    .metric-box {
+        background: #0f172a;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    .metric-box h3 {
+        color: white;
+        margin-bottom: 10px;
+    }
+
+    .info-list {
+        margin-top: 15px;
+        padding-left: 20px;
+        line-height: 2;
+        color: #e2e8f0;
+    }
+
+    footer {
+        text-align: center;
+        margin-top: 40px;
+        color: white;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <h1>Shortest Job First (SJF) Scheduler</h1>
+    <p class="subtitle">
+        Interactive Operating Systems Portfolio Project
+    </p>
+
+    <div class="card">
+        <h2>What is SJF Scheduling?</h2>
+
+        <p>
+            Shortest Job First (SJF) is a CPU scheduling algorithm where the process with the
+            smallest burst time is executed first.
+            The operating system estimates which process will finish the fastest and schedules it before longer jobs.
+        </p>
+
+        <br>
+
+        <p>
+            SJF minimizes average waiting time and is considered one of the most efficient scheduling algorithms.
+            However, it may cause <strong>starvation</strong>, where longer processes wait too long if short jobs keep arriving.
+        </p>
+
+        <ul class="info-list">
+            <li><strong>Type:</strong> Non-Preemptive Scheduling Algorithm</li>
+            <li><strong>Main Goal:</strong> Reduce average waiting time</li>
+            <li><strong>Advantage:</strong> Fast average performance</li>
+            <li><strong>Disadvantage:</strong> Long processes may starve</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Interactive SJF Simulator</h2>
+
+        <p>
+            Enter the burst time for each process, then press “Run Scheduler” to see how SJF schedules them.
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Process</th>
+                    <th>Burst Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>P1</td>
+                    <td><input type="number" id="p1" value="6"></td>
+                </tr>
+                <tr>
+                    <td>P2</td>
+                    <td><input type="number" id="p2" value="2"></td>
+                </tr>
+                <tr>
+                    <td>P3</td>
+                    <td><input type="number" id="p3" value="8"></td>
+                </tr>
+                <tr>
+                    <td>P4</td>
+                    <td><input type="number" id="p4" value="3"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button onclick="runSJF()">Run Scheduler</button>
+
+        <div id="ganttContainer"></div>
+        <div id="metrics"></div>
+    </div>
+
+    <div class="card">
+        <h2>How the Algorithm Works</h2>
+
+        <p>
+            The scheduler compares all available processes and chooses the one with the smallest CPU burst time.
+            After that process finishes, the scheduler again selects the shortest remaining job.
+        </p>
+
+        <br>
+
+        <p>
+            Example:
+        </p>
+
+        <ul class="info-list">
+            <li>P1 = 6 ms</li>
+            <li>P2 = 2 ms</li>
+            <li>P3 = 8 ms</li>
+            <li>P4 = 3 ms</li>
+        </ul>
+
+        <p style="margin-top: 15px;">
+            Execution Order → P2 → P4 → P1 → P3
+        </p>
+    </div>
+
+    <footer>
+        Operating Systems Course Project — SJF CPU Scheduling Demo
+    </footer>
+
+</div>
+
+<script>
+    function runSJF() {
+        const originalProcesses = [
+            { name: 'P1', burst: parseInt(document.getElementById('p1').value), arrival: 0 },
+            { name: 'P2', burst: parseInt(document.getElementById('p2').value), arrival: 0 },
+            { name: 'P3', burst: parseInt(document.getElementById('p3').value), arrival: 0 },
+            { name: 'P4', burst: parseInt(document.getElementById('p4').value), arrival: 0 }
+        ];
+    
+        for (let p of originalProcesses) {
+            if (isNaN(p.burst) || p.burst <= 0) {
+                alert('Please enter valid, positive burst times.');
+                return;
+            }
+        }
+    
+        let pool = originalProcesses.map(p => ({ ...p, completed: false }));
+        let scheduledOrder = [];
+        
+        let currentTime = 0;
+        let completedCount = 0;
+        const totalProcesses = pool.length;
+    
+        while (completedCount < totalProcesses) {
+            let availableJobs = pool.filter(p => p.arrival <= currentTime && !p.completed);
+    
+            if (availableJobs.length > 0) {
+                availableJobs.sort((a, b) => {
+                    if (a.burst === b.burst) return a.arrival - b.arrival;
+                    return a.burst - b.burst;
+                });
+    
+                let nextJob = availableJobs[0];
+                
+                let waitingTime = currentTime - nextJob.arrival;
+                let turnaroundTime = waitingTime + nextJob.burst;
+    
+                scheduledOrder.push({
+                    name: nextJob.name,
+                    burst: nextJob.burst,
+                    startTime: currentTime,
+                    waitingTime: waitingTime,
+                    turnaroundTime: turnaroundTime
+                });
+    
+                currentTime += nextJob.burst;
+                nextJob.completed = true;
+                completedCount++;
+            } else {
+                let unexecutedJobs = pool.filter(p => !p.completed);
+                let nextArrival = Math.min(...unexecutedJobs.map(p => p.arrival));
+                currentTime = nextArrival;
+            }
+        }
+    
+        let totalWaiting = 0;
+        let totalTurnaround = 0;
+    
+        let ganttHTML = '<h2 style="margin-top:30px;">Gantt Chart</h2>';
+        ganttHTML += '<div class="gantt">';
+    
+        let tableHTML = `
+            <h2 style="margin-top:40px;">Process Calculations</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Process</th>
+                        <th>Burst Time</th>
+                        <th>Waiting Time</th>
+                        <th>Turnaround Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+    
+        scheduledOrder.forEach((process, index) => {
+            totalWaiting += process.waitingTime;
+            totalTurnaround += process.turnaroundTime;
+    
+            ganttHTML += `
+                <div class="block" style="background:${getColor(index)}; width:${process.burst * 45}px;">
+                    ${process.name}
+                    <span>${process.startTime}</span>
+                </div>
+            `;
+    
+            tableHTML += `
+                <tr>
+                    <td>${process.name}</td>
+                    <td>${process.burst}</td>
+                    <td>${process.waitingTime}</td>
+                    <td>${process.turnaroundTime}</td>
+                </tr>
+            `;
+        });
+    
+        ganttHTML += `
+            <div style="display:flex;align-items:flex-end;padding-bottom:5px;">
+                <span>${currentTime}</span>
+            </div>
+        `;
+        ganttHTML += '</div>';
+        tableHTML += '</tbody></table>';
+    
+        const avgWaiting = (totalWaiting / totalProcesses).toFixed(2);
+        const avgTurnaround = (totalTurnaround / totalProcesses).toFixed(2);
+    
+        const metricsHTML = `
+            ${tableHTML}
+            <div class="metrics">
+                <div class="metric-box">
+                    <h3>Average Waiting Time</h3>
+                    <p>${avgWaiting} ms</p>
+                </div>
+                <div class="metric-box">
+                    <h3>Average Turnaround Time</h3>
+                    <p>${avgTurnaround} ms</p>
+                </div>
+            </div>
+        `;
+    
+        document.getElementById('ganttContainer').innerHTML = ganttHTML;
+        document.getElementById('metrics').innerHTML = metricsHTML;
+    }
+    
+    function getColor(index) {
+        const colors = ['#38bdf8', '#f472b6', '#34d399', '#fbbf24', '#c084fc'];
+        return colors[index % colors.length];
+    }
+    </script>
+</body>
+</html>

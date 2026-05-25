@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCFS CPU Scheduler</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 850px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; color: #222; }
+  h1 { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 6px; }
+  h2 { color: #2c3e50; margin-top: 30px; border-bottom: 2px solid #2c3e50; padding-bottom: 6px; }
+  .box { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pros { background: #eaffea; border-left: 4px solid #27ae60; padding: 14px; border-radius: 4px; }
+  .cons { background: #fff0f0; border-left: 4px solid #e74c3c; padding: 14px; border-radius: 4px; }
+  li { margin: 6px 0; }
+
+  /* Demo */
+  .input-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+  .input-row label { display: block; font-size: 12px; color: #666; margin-bottom: 3px; }
+  .input-row input { width: 90px; padding: 8px; border: 1px solid #bbb; border-radius: 4px; font-size: 14px; }
+  .btn { padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+  .btn-add  { background: #2980b9; color: white; }
+  .btn-run  { background: #27ae60; color: white; }
+  .btn-clear{ background: #e74c3c; color: white; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: #2c3e50; color: white; padding: 9px 12px; text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Gantt */
+  .gantt { display: flex; height: 44px; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; margin: 12px 0 4px; }
+  .g-block { display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; color: #fff; border-right: 2px solid rgba(0,0,0,0.2); }
+  .g-block:last-child { border-right: none; }
+  .axis { display: flex; position: relative; height: 18px; font-size: 11px; color: #888; }
+  .axis span { position: absolute; transform: translateX(-50%); }
+
+  .stat-row { display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+  .stat { background: #eaf4ff; border: 1px solid #aad4f0; border-radius: 6px; padding: 12px 18px; text-align: center; flex: 1; min-width: 120px; }
+  .stat big { display: block; font-size: 26px; font-weight: bold; color: #2980b9; }
+  .stat small { font-size: 11px; color: #666; }
+
+  #result-section { display: none; }
+  .colors { background: #3498db #e67e22 #2ecc71 #9b59b6 #e74c3c #1abc9c #f39c12 #34495e; }
+  .error { color: #e74c3c; font-size: 13px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<h1>Task 1 — FCFS CPU Scheduling</h1>
+
+<h2>What is FCFS?</h2>
+<div class="box">
+  <p><strong>First-Come, First-Served (FCFS)</strong> is the simplest CPU scheduling algorithm. Processes are executed in the order they arrive in the ready queue. The CPU runs each process to completion before moving to the next one (<em>non-preemptive</em>).</p>
+  <br>
+  <p>Think of it like a queue at a ticket counter — whoever arrives first gets served first, no matter how long they take.</p>
+</div>
+
+<h2>Key Terms</h2>
+<div class="box">
+  <ul>
+    <li><strong>Arrival Time (AT)</strong> — when the process enters the ready queue</li>
+    <li><strong>Burst Time (BT)</strong> — how much CPU time the process needs</li>
+    <li><strong>Completion Time (CT)</strong> — when the process finishes</li>
+    <li><strong>Turnaround Time (TAT)</strong> = CT − AT</li>
+    <li><strong>Waiting Time (WT)</strong> = TAT − BT</li>
+  </ul>
+</div>
+
+<h2>Advantages & Disadvantages</h2>
+<div class="pros-cons">
+  <div class="pros">
+    <strong>✅ Pros</strong>
+    <ul>
+      <li>Very simple to implement</li>
+      <li>No starvation — every process runs</li>
+      <li>Easy to understand</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <strong>❌ Cons</strong>
+    <ul>
+      <li><strong>Convoy Effect</strong> — short jobs wait behind long ones</li>
+      <li>High average waiting time</li>
+      <li>Not good for interactive systems</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Interactive Demo</h2>
+<div class="box">
+  <div class="input-row">
+    <div><label>Process ID</label><input id="pid" value="P1" maxlength="4"></div>
+    <div><label>Arrival Time</label><input id="at" type="number" value="0" min="0"></div>
+    <div><label>Burst Time</label><input id="bt" type="number" value="5" min="1"></div>
+    <button class="btn btn-add" onclick="addProc()">+ Add</button>
+  </div>
+  <div class="error" id="err"></div>
+
+  <table id="proc-table">
+    <thead><tr><th>Process</th><th>Arrival Time</th><th>Burst Time</th><th></th></tr></thead>
+    <tbody id="proc-body"></tbody>
+  </table>
+
+  <div style="display:flex; gap:10px; margin-top:14px;">
+    <button class="btn btn-run" onclick="runFCFS()">▶ Run FCFS</button>
+    <button class="btn btn-clear" onclick="clearAll()">✕ Clear</button>
+  </div>
+</div>
+
+<div id="result-section">
+  <h2>Gantt Chart</h2>
+  <div class="box">
+    <div class="gantt" id="gantt"></div>
+    <div class="axis" id="axis"></div>
+  </div>
+
+  <h2>Results</h2>
+  <div class="box">
+    <table>
+      <thead><tr><th>Process</th><th>Arrival</th><th>Burst</th><th>Completion</th><th>Turnaround</th><th>Waiting</th></tr></thead>
+      <tbody id="res-body"></tbody>
+    </table>
+    <div class="stat-row" id="stats"></div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#3498db','#e67e22','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f39c12','#7f8c8d'];
+let procs = [];
+let nextNum = 1;
+
+function addProc() {
+  const pid = document.getElementById('pid').value.trim().toUpperCase();
+  const at  = parseInt(document.getElementById('at').value);
+  const bt  = parseInt(document.getElementById('bt').value);
+  const err = document.getElementById('err');
+  err.textContent = '';
+
+  if (!pid) { err.textContent = 'Enter a Process ID.'; return; }
+  if (procs.some(p => p.pid === pid)) { err.textContent = 'That ID already exists.'; return; }
+  if (isNaN(at) || at < 0) { err.textContent = 'Arrival Time must be ≥ 0.'; return; }
+  if (isNaN(bt) || bt < 1) { err.textContent = 'Burst Time must be ≥ 1.'; return; }
+  if (procs.length >= 8) { err.textContent = 'Max 8 processes.'; return; }
+
+  procs.push({ pid, at, bt, ci: procs.length });
+  nextNum++;
+  document.getElementById('pid').value = 'P' + (nextNum);
+  renderTable();
+  document.getElementById('result-section').style.display = 'none';
+}
+
+function removeProc(i) {
+  procs.splice(i, 1);
+  procs.forEach((p, idx) => p.ci = idx);
+  renderTable();
+  document.getElementById('result-section').style.display = 'none';
+}
+
+function renderTable() {
+  document.getElementById('proc-body').innerHTML = procs.map((p, i) => `
+    <tr>
+      <td><span style="display:inline-block;width:12px;height:12px;background:${COLORS[p.ci]};border-radius:2px;vertical-align:middle;margin-right:6px;"></span>${p.pid}</td>
+      <td>${p.at}</td>
+      <td>${p.bt}</td>
+      <td><button onclick="removeProc(${i})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function clearAll() {
+  procs = []; nextNum = 1;
+  document.getElementById('pid').value = 'P1';
+  renderTable();
+  document.getElementById('result-section').style.display = 'none';
+}
+
+function runFCFS() {
+  if (!procs.length) { document.getElementById('err').textContent = 'Add at least one process.'; return; }
+  const sorted = [...procs].sort((a, b) => a.at - b.at);
+  let time = 0, gantt = [], results = [];
+
+  for (const p of sorted) {
+    if (time < p.at) { gantt.push({ pid: 'IDLE', start: time, end: p.at, ci: -1 }); time = p.at; }
+    gantt.push({ pid: p.pid, start: time, end: time + p.bt, ci: p.ci });
+    time += p.bt;
+    const ct = time, tat = ct - p.at, wt = tat - p.bt;
+    results.push({ ...p, ct, tat, wt });
+  }
+
+  // Gantt
+  const total = gantt[gantt.length - 1].end;
+  document.getElementById('gantt').innerHTML = gantt.map(g => {
+    const w = ((g.end - g.start) / total * 100).toFixed(1);
+    const bg = g.ci === -1 ? '#ccc' : COLORS[g.ci];
+    const color = g.ci === -1 ? '#666' : '#fff';
+    return `<div class="g-block" style="width:${w}%;background:${bg};color:${color}" title="${g.pid}: t${g.start}–t${g.end}">${g.pid}</div>`;
+  }).join('');
+
+  // Axis
+  const ticks = [...new Set(gantt.flatMap(g => [g.start, g.end]))].sort((a, b) => a - b);
+  document.getElementById('axis').innerHTML = ticks.map(t =>
+    `<span style="left:${(t/total*100).toFixed(1)}%">${t}</span>`
+  ).join('');
+
+  // Results table
+  document.getElementById('res-body').innerHTML = results.map(r => `
+    <tr>
+      <td><span style="display:inline-block;width:10px;height:10px;background:${COLORS[r.ci]};border-radius:2px;vertical-align:middle;margin-right:5px;"></span>${r.pid}</td>
+      <td>${r.at}</td><td>${r.bt}</td><td>${r.ct}</td>
+      <td><b>${r.tat}</b></td><td><b>${r.wt}</b></td>
+    </tr>
+  `).join('');
+
+  // Stats
+  const avgWT  = (results.reduce((s, r) => s + r.wt,  0) / results.length).toFixed(2);
+  const avgTAT = (results.reduce((s, r) => s + r.tat, 0) / results.length).toFixed(2);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><big>${avgWT}</big><small>Avg Waiting Time</small></div>
+    <div class="stat"><big>${avgTAT}</big><small>Avg Turnaround Time</small></div>
+    <div class="stat"><big>${total}</big><small>Total Time Units</small></div>
+  `;
+
+  document.getElementById('result-section').style.display = 'block';
+}
+
+// Default example
+[['P1',0,7],['P2',2,4],['P3',4,1]].forEach(([pid,at,bt],i) => procs.push({pid,at,bt,ci:i}));
+nextNum = 4; document.getElementById('pid').value = 'P4';
+renderTable();
+</script>
+</body>
+</html>

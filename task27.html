@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sleep() System Call Demo</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --panel2: #182449;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #60a5fa;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --line: rgba(255, 255, 255, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(96, 165, 250, 0.16), transparent 30%),
+        linear-gradient(180deg, #050816, #0b1020 45%, #030712);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .hero,
+    .card {
+      background: rgba(18, 26, 51, 0.95);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 5vw, 3.4rem);
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 900px;
+      font-size: 1.03rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 20px;
+    }
+
+    .card {
+      padding: 22px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.35rem;
+    }
+
+    p, li {
+      line-height: 1.75;
+      color: var(--text);
+    }
+
+    ul { margin-top: 10px; padding-left: 20px; }
+
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      border-radius: 14px;
+      background: rgba(8, 15, 32, 0.8);
+      border-top: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .code {
+      background: #020617;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      white-space: pre;
+    }
+
+    .demo {
+      display: grid;
+      gap: 16px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 0.98rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    .primary { background: var(--accent); color: #08111f; }
+    .secondary { background: #334155; color: var(--text); }
+
+    .monitor {
+      background: rgba(8, 15, 32, 0.8);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    .status {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .status strong { font-size: 1.02rem; }
+    .muted { color: var(--muted); }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 12px 0 14px;
+    }
+
+    .stat {
+      background: rgba(24, 36, 73, 0.75);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat .label {
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin-bottom: 6px;
+    }
+
+    .stat .value {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 14px;
+      border-radius: 999px;
+      background: #1e293b;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--good));
+      transition: width 0.25s linear;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(15, 23, 42, 0.7);
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex: 0 0 auto;
+    }
+
+    .step.active {
+      border-color: rgba(34, 197, 94, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.12);
+    }
+
+    .step.active .dot {
+      background: var(--good);
+      box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.12);
+    }
+
+    .step-title { font-weight: bold; }
+    .step-text { color: var(--muted); font-size: 0.95rem; }
+
+    .endmsg {
+      margin-top: 8px;
+      color: #86efac;
+      font-weight: bold;
+      min-height: 1.2em;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      margin-top: 14px;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 14px; }
+      .hero, .card { padding: 18px; border-radius: 18px; }
+      .stats { grid-template-columns: 1fr; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>sleep() System Call</h1>
+      <p class="subtitle">
+        The <strong>sleep()</strong> system call pauses a process for a set amount of time.
+        During that pause, the process is moved into a waiting state, and the CPU can run other
+        processes instead. This page shows the idea in a simple visual demo.
+      </p>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Explanation</h2>
+        <p>
+          You can think of <strong>sleep()</strong> like a timer that tells a program to take a break.
+          The program does not crash or stop forever. It just waits, and then continues after the
+          chosen number of seconds has passed.
+        </p>
+
+        <div class="callout">
+          <strong>Key point:</strong> the process is temporarily paused, but the operating system keeps
+          running normally and may schedule another process on the CPU.
+        </div>
+
+        <p><strong>Uses of sleep():</strong></p>
+        <ul>
+          <li>adding delays between actions</li>
+          <li>waiting before retrying a task</li>
+          <li>making animations or timed loops easier to control</li>
+        </ul>
+
+        <p><strong>C example:</strong></p>
+        <div class="code">#include &lt;unistd.h&gt;
+#include &lt;stdio.h&gt;
+
+int main() {
+    printf("Before sleep\n");
+    sleep(3);
+    printf("After 3 seconds\n");
+    return 0;
+}</div>
+
+        <p class="footer-note">
+          In the example, the program prints one message, sleeps for 3 seconds, and then continues.
+        </p>
+      </section>
+
+      <section class="card demo">
+        <h2>Interactive demo</h2>
+
+        <div class="controls">
+          <div>
+            <label for="duration">Sleep duration: <span id="durationText">5</span> seconds</label>
+            <input id="duration" type="range" min="1" max="10" value="5" />
+          </div>
+          <div class="buttons">
+            <button class="primary" id="startBtn">Start sleep()</button>
+            <button class="secondary" id="resetBtn">Reset</button>
+          </div>
+        </div>
+
+        <div class="monitor">
+          <div class="status">
+            <strong>Status: <span id="statusText">Ready</span></strong>
+            <span class="muted">Current process state: <span id="procState">Running</span></span>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <div class="label">Time left</div>
+              <div class="value" id="timeLeft">5</div>
+            </div>
+            <div class="stat">
+              <div class="label">Process state</div>
+              <div class="value" id="stateValue">Running</div>
+            </div>
+            <div class="stat">
+              <div class="label">CPU status</div>
+              <div class="value" id="cpuValue">Free</div>
+            </div>
+          </div>
+
+          <div class="bar-track" aria-label="sleep progress bar">
+            <div class="bar-fill" id="barFill"></div>
+          </div>
+
+          <div class="endmsg" id="endMsg"></div>
+        </div>
+
+        <div class="timeline">
+          <div class="step" id="step1">
+            <div class="dot"></div>
+            <div>
+              <div class="step-title">1. Program is running</div>
+              <div class="step-text">The process starts in the running state.</div>
+            </div>
+          </div>
+          <div class="step" id="step2">
+            <div class="dot"></div>
+            <div>
+              <div class="step-title">2. sleep() is called</div>
+              <div class="step-text">The OS pauses the process for the selected time.</div>
+            </div>
+          </div>
+          <div class="step" id="step3">
+            <div class="dot"></div>
+            <div>
+              <div class="step-title">3. Process wakes up</div>
+              <div class="step-text">The timer ends and the process continues running.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const duration = document.getElementById('duration');
+    const durationText = document.getElementById('durationText');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const statusText = document.getElementById('statusText');
+    const procState = document.getElementById('procState');
+    const timeLeft = document.getElementById('timeLeft');
+    const stateValue = document.getElementById('stateValue');
+    const cpuValue = document.getElementById('cpuValue');
+    const barFill = document.getElementById('barFill');
+    const endMsg = document.getElementById('endMsg');
+
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const step3 = document.getElementById('step3');
+
+    let timerId = null;
+    let totalSeconds = Number(duration.value);
+    let remainingSeconds = totalSeconds;
+
+    function setActiveStep(stepNumber) {
+      [step1, step2, step3].forEach(step => step.classList.remove('active'));
+      if (stepNumber === 1) step1.classList.add('active');
+      if (stepNumber === 2) step2.classList.add('active');
+      if (stepNumber === 3) step3.classList.add('active');
+    }
+
+    function updateDisplay() {
+      durationText.textContent = duration.value;
+      timeLeft.textContent = remainingSeconds;
+      stateValue.textContent = procState.textContent;
+      const done = totalSeconds - remainingSeconds;
+      const percent = totalSeconds === 0 ? 0 : (done / totalSeconds) * 100;
+      barFill.style.width = percent + '%';
+    }
+
+    function resetDemo() {
+      clearInterval(timerId);
+      timerId = null;
+
+      totalSeconds = Number(duration.value);
+      remainingSeconds = totalSeconds;
+
+      statusText.textContent = 'Ready';
+      procState.textContent = 'Running';
+      cpuValue.textContent = 'Free';
+      endMsg.textContent = '';
+
+      startBtn.disabled = false;
+      duration.disabled = false;
+
+      setActiveStep(1);
+      barFill.style.width = '0%';
+      timeLeft.textContent = totalSeconds;
+      stateValue.textContent = 'Running';
+      durationText.textContent = duration.value;
+    }
+
+    duration.addEventListener('input', () => {
+      durationText.textContent = duration.value;
+      if (!timerId) {
+        totalSeconds = Number(duration.value);
+        remainingSeconds = totalSeconds;
+        timeLeft.textContent = remainingSeconds;
+        barFill.style.width = '0%';
+      }
+    });
+
+    startBtn.addEventListener('click', () => {
+      if (timerId) return;
+
+      totalSeconds = Number(duration.value);
+      remainingSeconds = totalSeconds;
+
+      statusText.textContent = 'sleep() called';
+      procState.textContent = 'Sleeping';
+      cpuValue.textContent = 'Available for other processes';
+      endMsg.textContent = '';
+      setActiveStep(2);
+
+      startBtn.disabled = true;
+      duration.disabled = true;
+
+      updateDisplay();
+
+      timerId = setInterval(() => {
+        remainingSeconds -= 1;
+        if (remainingSeconds < 0) remainingSeconds = 0;
+        updateDisplay();
+
+        if (remainingSeconds === 0) {
+          clearInterval(timerId);
+          timerId = null;
+          statusText.textContent = 'Finished sleeping';
+          procState.textContent = 'Running';
+          cpuValue.textContent = 'In use again';
+          endMsg.textContent = 'The process woke up and continued execution.';
+          setActiveStep(3);
+          startBtn.disabled = false;
+          duration.disabled = false;
+        }
+      }, 1000);
+    });
+
+    resetBtn.addEventListener('click', resetDemo);
+
+    resetDemo();
+  </script>
+</body>
+</html>

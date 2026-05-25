@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topic 11 — Direct Memory Access (DMA)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #060a10;
+    --panel: #0c1220;
+    --border: #1a2a40;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff00;
+    --cpu: #ff6b35;
+    --mem: #00e5ff;
+    --dma: #7fff00;
+    --bus: #ffdd57;
+    --io: #cc66ff;
+    --text: #cdd9e8;
+    --dim: #4a6070;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,229,255,0.015) 2px, rgba(0,229,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 2rem 2rem;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(0,229,255,0.05) 0%, transparent 100%);
+  }
+
+  .topic-badge {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 12px;
+    letter-spacing: 3px;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    color: #fff;
+    letter-spacing: 2px;
+    text-shadow: 0 0 30px rgba(0,229,255,0.4), 0 0 60px rgba(0,229,255,0.2);
+    margin-bottom: 0.5rem;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    font-size: 1rem;
+    color: var(--dim);
+    font-weight: 300;
+    letter-spacing: 1px;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+  }
+
+  /* SECTION TITLES */
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* THEORY CARD */
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  @media(max-width: 700px) { .theory-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .card.cpu-card::before { background: var(--cpu); }
+  .card.dma-card::before { background: var(--dma); }
+  .card.mem-card::before { background: var(--mem); }
+  .card.io-card::before { background: var(--io); }
+
+  .card-icon {
+    font-size: 1.6rem;
+    margin-bottom: 0.6rem;
+  }
+  .card h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .card.cpu-card h3 { color: var(--cpu); }
+  .card.dma-card h3 { color: var(--dma); }
+  .card.mem-card h3 { color: var(--mem); }
+  .card.io-card h3 { color: var(--io); }
+
+  .card p {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  /* COMPARISON TABLE */
+  .compare-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: rgba(0,229,255,0.07); }
+  th {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    padding: 0.9rem 1.2rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.75rem 1.2rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(26,42,64,0.5);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  .bad  { color: #ff6b6b; }
+  .good { color: var(--dma); }
+
+  /* ============= ANIMATION STAGE ============= */
+  .stage-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 0.6rem 1.4rem;
+    border: 1px solid;
+    border-radius: 3px;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .btn-cpu  { border-color: var(--cpu);  color: var(--cpu); }
+  .btn-dma  { border-color: var(--dma);  color: var(--dma); }
+  .btn-reset{ border-color: var(--dim);  color: var(--dim); }
+
+  .btn-cpu:hover  { background: rgba(255,107,53,0.15); }
+  .btn-dma:hover  { background: rgba(127,255,0,0.12); }
+  .btn-reset:hover{ background: rgba(74,96,112,0.2); }
+  .btn:disabled   { opacity: 0.3; cursor: not-allowed; }
+
+  .mode-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    transition: all 0.3s;
+  }
+  .mode-label.active-cpu { border-color: var(--cpu); color: var(--cpu); background: rgba(255,107,53,0.08); }
+  .mode-label.active-dma { border-color: var(--dma); color: var(--dma); background: rgba(127,255,0,0.08); }
+
+  /* SVG stage */
+  #dma-svg {
+    width: 100%;
+    height: 360px;
+    display: block;
+  }
+
+  /* Log */
+  .log-box {
+    background: #050810;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1rem;
+    height: 120px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.8;
+  }
+  .log-box::-webkit-scrollbar { width: 4px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .log-cpu  { color: var(--cpu); }
+  .log-dma  { color: var(--dma); }
+  .log-bus  { color: var(--bus); }
+  .log-mem  { color: var(--mem); }
+  .log-sys  { color: var(--dim); }
+
+  /* STATS */
+  .stats-row {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .stat-box {
+    flex: 1;
+    min-width: 120px;
+    background: #050810;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.8rem 1rem;
+    text-align: center;
+  }
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 0.3rem;
+  }
+  .stat-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+  .stat-value.v-cpu { color: var(--cpu); }
+  .stat-value.v-dma { color: var(--dma); }
+  .stat-value.v-bus { color: var(--bus); }
+
+  /* HOW IT WORKS STEPS */
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  .step-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.2rem;
+    position: relative;
+  }
+  .step-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    font-weight: 900;
+    color: rgba(0,229,255,0.1);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .step-text {
+    font-size: 0.83rem;
+    line-height: 1.65;
+    color: var(--text);
+  }
+  .step-text strong { color: var(--accent); }
+
+  footer {
+    text-align: center;
+    padding: 2rem;
+    border-top: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    letter-spacing: 2px;
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="topic-badge">Topic 11 &nbsp;·&nbsp; Operating Systems</div>
+  <h1>Direct Memory <span>Access</span></h1>
+  <p class="subtitle">Hardware-level data transfers — bypassing the CPU</p>
+</header>
+
+<main>
+
+  <!-- THEORY -->
+  <div class="section-title">Core Concepts</div>
+  <div class="theory-grid">
+    <div class="card cpu-card">
+      <div class="card-icon">🖥️</div>
+      <h3>Without DMA (PIO)</h3>
+      <p>In <strong>Programmed I/O</strong>, the CPU manually reads each byte from a device register and writes it to memory — one byte at a time. The CPU is <em>fully occupied</em> for the duration of the transfer, unable to do any other work. This is called <strong>busy-waiting</strong> or <strong>polling</strong>.</p>
+    </div>
+    <div class="card dma-card">
+      <div class="card-icon">⚡</div>
+      <h3>With DMA</h3>
+      <p>The <strong>DMA Controller</strong> is a dedicated hardware chip that takes over the data bus. The CPU tells the DMA controller: <em>"transfer N bytes from device X to address Y"</em>, then the CPU is <strong>free to execute other processes</strong> while the DMA handles the transfer autonomously.</p>
+    </div>
+    <div class="card mem-card">
+      <div class="card-icon">🔌</div>
+      <h3>The System Bus</h3>
+      <p>All components (CPU, Memory, I/O devices) share a common <strong>system bus</strong>. During a DMA transfer, the DMA controller requests <em>bus mastership</em>. The CPU yields the bus temporarily — called <strong>cycle stealing</strong> — allowing the DMA to perform the transfer.</p>
+    </div>
+    <div class="card io-card">
+      <div class="card-icon">🔔</div>
+      <h3>Interrupt on Completion</h3>
+      <p>When the DMA controller finishes the entire transfer, it sends a <strong>hardware interrupt</strong> to the CPU. Only at this point does the CPU need to respond — to acknowledge completion and handle the transferred data. This is vastly more efficient than polling.</p>
+    </div>
+  </div>
+
+  <!-- COMPARISON -->
+  <div class="section-title">PIO vs DMA — Transfer Comparison</div>
+  <div class="compare-wrap" style="margin-bottom:2.5rem">
+    <table>
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>Without DMA (PIO)</th>
+          <th>With DMA</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CPU involvement</td>
+          <td class="bad">Every single byte</td>
+          <td class="good">Only setup + interrupt</td>
+        </tr>
+        <tr>
+          <td>CPU during transfer</td>
+          <td class="bad">Blocked / polling</td>
+          <td class="good">Free to run other processes</td>
+        </tr>
+        <tr>
+          <td>Transfer speed</td>
+          <td class="bad">Limited by CPU speed</td>
+          <td class="good">Near memory-bus speed</td>
+        </tr>
+        <tr>
+          <td>Interrupts generated</td>
+          <td class="bad">One per byte (or word)</td>
+          <td class="good">One per entire transfer</td>
+        </tr>
+        <tr>
+          <td>Use case</td>
+          <td>Small, infrequent transfers</td>
+          <td class="good">Disk I/O, network, audio, video</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- INTERACTIVE DEMO -->
+  <div class="section-title">Interactive Animation</div>
+  <div class="stage-wrap">
+    <div class="controls">
+      <button class="btn btn-cpu" id="btnPIO" onclick="runPIO()">▶ Simulate PIO (No DMA)</button>
+      <button class="btn btn-dma" id="btnDMA" onclick="runDMA()">▶ Simulate DMA Transfer</button>
+      <button class="btn btn-reset" onclick="resetAll()">⟳ Reset</button>
+      <span class="mode-label" id="modeLabel">SELECT A MODE</span>
+    </div>
+
+    <svg id="dma-svg" viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background grid -->
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(26,42,64,0.5)" stroke-width="0.5"/>
+        </pattern>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <marker id="arrow-cpu" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#ff6b35"/>
+        </marker>
+        <marker id="arrow-dma" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#7fff00"/>
+        </marker>
+        <marker id="arrow-int" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#ffdd57"/>
+        </marker>
+      </defs>
+      <rect width="800" height="360" fill="url(#grid)"/>
+
+      <!-- System Bus Bar -->
+      <rect x="0" y="168" width="800" height="24" fill="rgba(255,221,87,0.04)" stroke="#ffdd57" stroke-width="1" stroke-dasharray="6,3" opacity="0.6"/>
+      <text x="10" y="184" font-family="Share Tech Mono" font-size="9" fill="#ffdd57" opacity="0.7">SYSTEM BUS</text>
+
+      <!-- CPU Block -->
+      <g id="cpu-block">
+        <rect x="30" y="60" width="130" height="90" rx="4" fill="#120d08" stroke="#ff6b35" stroke-width="1.5"/>
+        <rect x="30" y="60" width="130" height="4" rx="2" fill="#ff6b35"/>
+        <text x="95" y="100" font-family="Orbitron" font-size="13" fill="#ff6b35" text-anchor="middle" font-weight="700">CPU</text>
+        <text x="95" y="118" font-family="Share Tech Mono" font-size="9" fill="#a06040" text-anchor="middle">Central Processing</text>
+        <text x="95" y="130" font-family="Share Tech Mono" font-size="9" fill="#a06040" text-anchor="middle">Unit</text>
+        <!-- CPU status indicator -->
+        <circle id="cpu-status" cx="148" cy="68" r="5" fill="#ff6b35"/>
+      </g>
+      <text id="cpu-label" x="95" y="168" font-family="Share Tech Mono" font-size="9" fill="#ff6b35" text-anchor="middle">RUNNING</text>
+
+      <!-- DMA Controller Block -->
+      <g id="dma-block">
+        <rect x="335" y="60" width="130" height="90" rx="4" fill="#0a100a" stroke="#7fff00" stroke-width="1.5" opacity="0.5"/>
+        <rect x="335" y="60" width="130" height="4" rx="2" fill="#7fff00" opacity="0.5"/>
+        <text x="400" y="95" font-family="Orbitron" font-size="10" fill="#7fff00" text-anchor="middle" font-weight="700" opacity="0.5">DMA</text>
+        <text x="400" y="112" font-family="Share Tech Mono" font-size="9" fill="#4a7a30" text-anchor="middle" opacity="0.5">Controller</text>
+        <circle id="dma-status" cx="453" cy="68" r="5" fill="#2a3a2a"/>
+      </g>
+      <text id="dma-label" x="400" y="168" font-family="Share Tech Mono" font-size="9" fill="#4a7a30" text-anchor="middle">IDLE</text>
+
+      <!-- Memory Block -->
+      <g id="mem-block">
+        <rect x="640" y="60" width="130" height="90" rx="4" fill="#08101a" stroke="#00e5ff" stroke-width="1.5"/>
+        <rect x="640" y="60" width="130" height="4" rx="2" fill="#00e5ff"/>
+        <text x="705" y="95" font-family="Orbitron" font-size="13" fill="#00e5ff" text-anchor="middle" font-weight="700">MEM</text>
+        <text x="705" y="112" font-family="Share Tech Mono" font-size="9" fill="#4a7090" text-anchor="middle">Main Memory</text>
+        <!-- Memory cells visual -->
+        <rect x="660" y="120" width="12" height="8" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="0.5"/>
+        <rect x="675" y="120" width="12" height="8" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="0.5"/>
+        <rect x="690" y="120" width="12" height="8" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="0.5"/>
+        <rect x="705" y="120" width="12" height="8" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="0.5"/>
+        <rect x="720" y="120" width="12" height="8" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="0.5"/>
+        <rect x="735" y="120" width="12" height="8" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="0.5"/>
+      </g>
+
+      <!-- I/O Device Block -->
+      <g id="io-block">
+        <rect x="335" y="255" width="130" height="75" rx="4" fill="#120a1a" stroke="#cc66ff" stroke-width="1.5"/>
+        <rect x="335" y="255" width="130" height="4" rx="2" fill="#cc66ff"/>
+        <text x="400" y="292" font-family="Orbitron" font-size="10" fill="#cc66ff" text-anchor="middle" font-weight="700">I/O DEVICE</text>
+        <text x="400" y="308" font-family="Share Tech Mono" font-size="9" fill="#7a4090" text-anchor="middle">e.g., Disk / NIC</text>
+      </g>
+
+      <!-- Static connecting lines (bus connections) -->
+      <line x1="160" y1="168" x2="335" y2="168" stroke="#ffdd57" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+      <line x1="465" y1="168" x2="640" y2="168" stroke="#ffdd57" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+      <line x1="400" y1="150" x2="400" y2="255" stroke="#cc66ff" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+
+      <!-- Animated data packets group -->
+      <g id="packets"></g>
+
+      <!-- Animated arrows group -->
+      <g id="arrows"></g>
+
+      <!-- Status text area -->
+      <text id="status-text" x="400" y="350" font-family="Share Tech Mono" font-size="11" fill="#4a6070" text-anchor="middle">Click a button above to start the simulation</text>
+    </svg>
+
+    <div class="log-box" id="logBox">
+      <span class="log-sys">// System log initialized. Select a simulation mode to begin.</span>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-label">CPU INTERRUPTS</div>
+        <div class="stat-value v-cpu" id="stat-ints">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">BUS CYCLES USED</div>
+        <div class="stat-value v-bus" id="stat-bus">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">CPU FREE TIME</div>
+        <div class="stat-value v-dma" id="stat-free">0%</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">BYTES TRANSFERRED</div>
+        <div class="stat-value v-mem" id="stat-bytes" style="color:var(--mem)">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW DMA WORKS STEPS -->
+  <div class="section-title">How DMA Works — Step by Step</div>
+  <div class="steps-grid">
+    <div class="step-card">
+      <div class="step-num">01</div>
+      <div class="step-text"><strong>CPU Initiates:</strong> The CPU writes the source address, destination address, and byte count into the DMA controller's registers. Then the CPU issues a "start" command.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">02</div>
+      <div class="step-text"><strong>CPU Freed:</strong> The CPU immediately returns to executing other instructions or processes. It does <em>not</em> wait for the transfer.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">03</div>
+      <div class="step-text"><strong>DMA Requests Bus:</strong> The DMA controller asserts a <strong>Bus Request (BR)</strong> signal. The CPU responds with <strong>Bus Grant (BG)</strong> and briefly yields control of the address/data bus.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">04</div>
+      <div class="step-text"><strong>Cycle Stealing:</strong> The DMA reads from the I/O device buffer and writes directly to memory, <strong>one word at a time</strong>, stealing bus cycles from the CPU with minimal impact.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">05</div>
+      <div class="step-text"><strong>Transfer Complete:</strong> Once all bytes are moved, the DMA controller raises an <strong>interrupt line</strong> to the CPU, signaling the transfer is done.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">06</div>
+      <div class="step-text"><strong>CPU Handles ISR:</strong> The CPU briefly pauses its current task to run the <strong>Interrupt Service Routine (ISR)</strong> — acknowledging the transfer and processing the data in memory.</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>TOPIC 11 &nbsp;·&nbsp; DIRECT MEMORY ACCESS &nbsp;·&nbsp; OPERATING SYSTEMS &nbsp;·&nbsp; <a href="index.html">← BACK TO INDEX</a></p>
+</footer>
+
+<script>
+  const BYTES_TOTAL = 8;
+  let animating = false;
+
+  function log(msg, cls='log-sys') {
+    const box = document.getElementById('logBox');
+    box.innerHTML += `<br><span class="${cls}">${msg}</span>`;
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function setStat(id, val) {
+    document.getElementById(id).textContent = val;
+  }
+
+  function setMode(mode) {
+    const lbl = document.getElementById('modeLabel');
+    if (mode === 'PIO') {
+      lbl.textContent = 'MODE: PIO (No DMA)';
+      lbl.className = 'mode-label active-cpu';
+    } else if (mode === 'DMA') {
+      lbl.textContent = 'MODE: DMA Transfer';
+      lbl.className = 'mode-label active-dma';
+    } else {
+      lbl.textContent = 'SELECT A MODE';
+      lbl.className = 'mode-label';
+    }
+  }
+
+  function setCPUStatus(busy) {
+    const dot = document.getElementById('cpu-status');
+    const lbl = document.getElementById('cpu-label');
+    if (busy) {
+      dot.setAttribute('fill', '#ff3333');
+      lbl.textContent = 'BUSY / BLOCKED';
+      lbl.setAttribute('fill', '#ff3333');
+    } else {
+      dot.setAttribute('fill', '#7fff00');
+      lbl.textContent = 'FREE / RUNNING';
+      lbl.setAttribute('fill', '#7fff00');
+    }
+  }
+
+  function setDMAStatus(active) {
+    const block = document.getElementById('dma-block');
+    const dot   = document.getElementById('dma-status');
+    const lbl   = document.getElementById('dma-label');
+    block.querySelectorAll('rect, text').forEach(el => el.style.opacity = active ? '1' : '0.5');
+    dot.setAttribute('fill', active ? '#7fff00' : '#2a3a2a');
+    lbl.textContent = active ? 'TRANSFERRING' : 'IDLE';
+    lbl.setAttribute('fill', active ? '#7fff00' : '#4a7a30');
+  }
+
+  function createPacket(svg, x, y, color) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('x', x-8); r.setAttribute('y', y-5);
+    r.setAttribute('width','16'); r.setAttribute('height','10');
+    r.setAttribute('rx','2'); r.setAttribute('fill', color);
+    r.setAttribute('filter','url(#glow)');
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x-4); line.setAttribute('y1',y);
+    line.setAttribute('x2',x+4); line.setAttribute('y2',y);
+    line.setAttribute('stroke','white'); line.setAttribute('stroke-width','1.5');
+    g.appendChild(r); g.appendChild(line);
+    svg.getElementById('packets').appendChild(g);
+    return g;
+  }
+
+  function animateElement(el, attr, from, to, duration) {
+    return new Promise(resolve => {
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+        const val = from + (to - from) * ease;
+        if (attr === 'x') {
+          const dx = val - from;
+          el.setAttribute('transform', `translate(${val - from},0)`);
+        } else {
+          el.setAttribute(attr, val);
+        }
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  function movePacket(pkg, fromX, toX, fromY, toY, duration) {
+    return new Promise(resolve => {
+      const start = performance.now();
+      const rectEl = pkg.querySelector('rect');
+      const lineEl = pkg.querySelector('line');
+      const origX = parseFloat(rectEl.getAttribute('x'));
+      const origY = parseFloat(rectEl.getAttribute('y'));
+
+      function step(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+        const cx = fromX + (toX - fromX) * ease;
+        const cy = fromY + (toY - fromY) * ease;
+        rectEl.setAttribute('x', cx - 8);
+        rectEl.setAttribute('y', cy - 5);
+        lineEl.setAttribute('x1', cx - 4); lineEl.setAttribute('y1', cy);
+        lineEl.setAttribute('x2', cx + 4); lineEl.setAttribute('y2', cy);
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function clearPackets() {
+    document.getElementById('packets').innerHTML = '';
+    document.getElementById('arrows').innerHTML = '';
+  }
+
+  async function runPIO() {
+    if (animating) return;
+    animating = true;
+    resetAll(false);
+    setMode('PIO');
+    document.getElementById('btnPIO').disabled = true;
+    document.getElementById('btnDMA').disabled = true;
+
+    const svg = document.getElementById('dma-svg');
+    let busCount = 0;
+
+    log('=== PIO Mode (No DMA) ===', 'log-cpu');
+    log('[CPU] Starting I/O transfer via Programmed I/O...', 'log-cpu');
+    log('[CPU] CPU will poll device and copy each byte manually', 'log-cpu');
+    setCPUStatus(true);
+    setStat('stat-free', '0%');
+
+    for (let i = 0; i < BYTES_TOTAL; i++) {
+      // CPU moves from its position to the I/O device
+      log(`[CPU→I/O] CPU requests byte ${i+1} from device (polling)...`, 'log-cpu');
+      const pkg1 = createPacket(svg, 95, 180, '#ff6b35');
+      await movePacket(pkg1, 95, 400, 180, 255, 400);
+      busCount++;
+
+      log(`[BUS] Bus cycle ${busCount}: CPU reads byte ${i+1} from I/O buffer`, 'log-bus');
+      await sleep(100);
+
+      // Packet goes from I/O device to Memory
+      log(`[CPU→MEM] CPU writes byte ${i+1} to memory address 0x${(0x4000+i*4).toString(16).toUpperCase()}`, 'log-mem');
+      await movePacket(pkg1, 400, 705, 255, 180, 400);
+      busCount++;
+
+      pkg1.parentNode.removeChild(pkg1);
+
+      // Light up a memory cell
+      const cells = svg.querySelectorAll('#mem-block rect + rect, #mem-block rect ~ rect');
+      // Find memory cell rects by index
+      const allRects = svg.querySelectorAll('#mem-block rect');
+      if (allRects[2+i]) {
+        allRects[2+i].setAttribute('fill', 'rgba(0,229,255,0.6)');
+      }
+
+      setStat('stat-bus', busCount);
+      setStat('stat-bytes', i+1);
+      await sleep(150);
+    }
+
+    setStat('stat-ints', BYTES_TOTAL);
+    setStat('stat-free', '0%');
+    log('[CPU] Transfer complete. CPU was blocked for entire duration.', 'log-cpu');
+    log('[RESULT] CPU executed ZERO other instructions during transfer.', 'log-sys');
+    document.getElementById('status-text').textContent = `PIO complete: CPU made ${BYTES_TOTAL} trips, used ${busCount} bus cycles, had 0% free time`;
+    document.getElementById('btnPIO').disabled = false;
+    document.getElementById('btnDMA').disabled = false;
+    animating = false;
+  }
+
+  async function runDMA() {
+    if (animating) return;
+    animating = true;
+    resetAll(false);
+    setMode('DMA');
+    document.getElementById('btnPIO').disabled = true;
+    document.getElementById('btnDMA').disabled = true;
+
+    const svg = document.getElementById('dma-svg');
+    let busCount = 0;
+
+    log('=== DMA Mode ===', 'log-dma');
+    log('[CPU] Programming DMA controller: src=I/O buffer, dst=0x4000, len=8 bytes', 'log-cpu');
+    await sleep(400);
+
+    // CPU sends setup to DMA
+    const setup = createPacket(svg, 95, 180, '#ff6b35');
+    await movePacket(setup, 95, 400, 180, 100, 500);
+    setup.parentNode.removeChild(setup);
+    log('[CPU] DMA programmed. CPU returning to other tasks...', 'log-cpu');
+    await sleep(200);
+
+    setCPUStatus(false);
+    setDMAStatus(true);
+    log('[DMA] Controller activated. Requesting bus mastership...', 'log-dma');
+    await sleep(300);
+    log('[BUS] DMA granted bus control (CPU yields).', 'log-bus');
+
+    // Animate CPU doing "other work" - show it processing
+    let cpuFreeCount = 0;
+    const cpuWorkInterval = setInterval(() => {
+      cpuFreeCount++;
+      if (cpuFreeCount <= 6) {
+        log(`[CPU] Executing instruction ${cpuFreeCount} of another process...`, 'log-sys');
+      }
+    }, 700);
+
+    for (let i = 0; i < BYTES_TOTAL; i++) {
+      await sleep(200);
+      log(`[DMA] Cycle stealing: byte ${i+1} I/O→MEM (0x${(0x4000+i*4).toString(16).toUpperCase()})`, 'log-dma');
+
+      // DMA moves packet: I/O device → memory (via bus, not through CPU)
+      const pkg = createPacket(svg, 400, 292, '#7fff00');
+      // First go up to bus level
+      await movePacket(pkg, 400, 560, 292, 180, 300);
+      busCount++;
+      // Then to memory
+      await movePacket(pkg, 560, 705, 180, 180, 200);
+      pkg.parentNode.removeChild(pkg);
+      busCount++;
+
+      // Light up memory cell
+      const allRects = svg.querySelectorAll('#mem-block rect');
+      if (allRects[2+i]) {
+        allRects[2+i].setAttribute('fill', 'rgba(127,255,0,0.6)');
+      }
+      setStat('stat-bus', busCount);
+      setStat('stat-bytes', i+1);
+      setStat('stat-free', `${Math.round((i+1)/BYTES_TOTAL*100)}%`);
+    }
+
+    clearInterval(cpuWorkInterval);
+    setStat('stat-free', '87%');
+
+    // DMA sends interrupt
+    log('[DMA] Transfer complete! Raising interrupt signal to CPU...', 'log-dma');
+    const intPkt = createPacket(svg, 400, 100, '#ffdd57');
+    await movePacket(intPkt, 400, 95, 100, 100, 500);
+    intPkt.parentNode.removeChild(intPkt);
+
+    setCPUStatus(true);
+    setDMAStatus(false);
+    setStat('stat-ints', 1);
+
+    log('[CPU] Interrupt received! Running ISR to acknowledge DMA completion.', 'log-cpu');
+    await sleep(300);
+    log('[CPU] ISR complete. Data available in memory at 0x4000–0x401C.', 'log-mem');
+    log('[RESULT] CPU handled only 1 interrupt, was free for ~87% of transfer duration.', 'log-sys');
+    setCPUStatus(false);
+
+    document.getElementById('status-text').textContent = `DMA complete: 1 interrupt, ${busCount} bus cycles, CPU was free for ~87% of transfer`;
+    document.getElementById('btnPIO').disabled = false;
+    document.getElementById('btnDMA').disabled = false;
+    animating = false;
+  }
+
+  function resetAll(full = true) {
+    if (full) {
+      if (animating) return;
+      clearPackets();
+      setMode('');
+      setCPUStatus(false);
+      setDMAStatus(false);
+      setStat('stat-ints', 0);
+      setStat('stat-bus', 0);
+      setStat('stat-free', '0%');
+      setStat('stat-bytes', 0);
+      document.getElementById('logBox').innerHTML = '<span class="log-sys">// System log initialized. Select a simulation mode to begin.</span>';
+      document.getElementById('status-text').textContent = 'Click a button above to start the simulation';
+      document.getElementById('cpu-label').textContent = 'RUNNING';
+      document.getElementById('cpu-label').setAttribute('fill', '#ff6b35');
+      document.getElementById('cpu-status').setAttribute('fill', '#ff6b35');
+      // Reset memory cells
+      const allRects = document.querySelectorAll('#mem-block rect');
+      allRects.forEach((r,i) => {
+        if (i >= 2) r.setAttribute('fill', 'rgba(0,229,255,0.15)');
+      });
+    } else {
+      clearPackets();
+      setStat('stat-ints', 0);
+      setStat('stat-bus', 0);
+      setStat('stat-free', '0%');
+      setStat('stat-bytes', 0);
+      document.getElementById('cpu-label').textContent = 'RUNNING';
+      document.getElementById('cpu-label').setAttribute('fill', '#ff6b35');
+      document.getElementById('cpu-status').setAttribute('fill', '#ff6b35');
+      const allRects = document.querySelectorAll('#mem-block rect');
+      allRects.forEach((r,i) => {
+        if (i >= 2) r.setAttribute('fill', 'rgba(0,229,255,0.15)');
+      });
+    }
+  }
+</script>
+</body>
+</html>

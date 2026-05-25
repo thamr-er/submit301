@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>lseek() — System Call Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.8rem;
+            color: #a78bfa;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 1rem;
+            margin-bottom: 30px;
+        }
+
+        /* ── Theory Section ─────────────────────────── */
+        .theory-box {
+            background: #16213e;
+            border-left: 4px solid #a78bfa;
+            border-radius: 8px;
+            padding: 22px 26px;
+            max-width: 900px;
+            margin: 0 auto 36px auto;
+        }
+        .theory-box h2 {
+            color: #a78bfa;
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .theory-box p { line-height: 1.7; color: #d1d5db; margin-bottom: 10px; }
+        .theory-box code {
+            background: #0f3460;
+            color: #f9c74f;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .whence-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 14px;
+        }
+        .whence-card {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+        }
+        .whence-card .tag {
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #f9c74f;
+            margin-bottom: 5px;
+        }
+        .whence-card .val { font-size: 0.75rem; color: #9ca3af; margin-bottom: 4px; }
+        .whence-card .desc { font-size: 0.82rem; color: #d1d5db; }
+
+        /* ── Demo Layout ─────────────────────────────── */
+        .demo-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .demo-wrapper h2 {
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+        }
+
+        /* File Content Visualizer */
+        .file-section {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 22px;
+        }
+        .file-section h3 {
+            color: #f9c74f;
+            margin-bottom: 14px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .file-bytes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 14px;
+        }
+        .byte-cell {
+            width: 34px;
+            height: 44px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            font-size: 0.78rem;
+            background: #0f3460;
+            color: #d1d5db;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .byte-cell .char { font-size: 0.95rem; font-weight: bold; }
+        .byte-cell .idx  { font-size: 0.6rem; color: #6b7280; margin-top: 2px; }
+
+        .byte-cell.cursor {
+            border-color: #f9c74f;
+            background: #1a3a6e;
+            color: #f9c74f;
+        }
+        .byte-cell.read-highlight {
+            background: #065f46;
+            border-color: #34d399;
+            color: #34d399;
+        }
+        .byte-cell.space-cell { color: #4b5563; }
+
+        .pointer-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+        .pointer-cell {
+            width: 34px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+        .pointer-cell.active { color: #f9c74f; }
+
+        .offset-info {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #9ca3af;
+            margin-top: 8px;
+        }
+        .offset-info span { color: #f9c74f; font-weight: bold; }
+
+        /* Controls */
+        .controls-section {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 22px;
+        }
+        .controls-section h3 {
+            color: #a78bfa;
+            margin-bottom: 16px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .control-row label {
+            color: #9ca3af;
+            font-size: 0.88rem;
+            min-width: 80px;
+        }
+        .control-row input[type=number] {
+            background: #0f3460;
+            border: 1px solid #374151;
+            color: #f9c74f;
+            padding: 6px 10px;
+            border-radius: 5px;
+            width: 80px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .whence-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .whence-btn {
+            padding: 7px 16px;
+            border: 2px solid #374151;
+            background: #0f3460;
+            color: #d1d5db;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .whence-btn.active, .whence-btn:hover {
+            border-color: #a78bfa;
+            color: #a78bfa;
+            background: #1e1b4b;
+        }
+
+        .action-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+        .btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-seek  { background: #7c3aed; color: white; }
+        .btn-seek:hover  { background: #6d28d9; }
+        .btn-read  { background: #065f46; color: #34d399; }
+        .btn-read:hover  { background: #047857; }
+        .btn-reset { background: #374151; color: #9ca3af; }
+        .btn-reset:hover { background: #4b5563; }
+
+        /* Code + Output */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+        @media(max-width: 640px) { .two-col { grid-template-columns: 1fr; } .whence-grid { grid-template-columns: 1fr; } }
+
+        .code-panel, .output-panel {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 18px;
+        }
+        .code-panel h3 { color: #f9c74f; margin-bottom: 12px; font-size: 0.9rem; font-family: 'Courier New', monospace; }
+        .output-panel h3 { color: #34d399; margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+
+        pre {
+            background: #0b1120;
+            padding: 14px;
+            border-radius: 7px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.78rem;
+            line-height: 1.7;
+            overflow-x: auto;
+            color: #d1d5db;
+            white-space: pre-wrap;
+        }
+        .kw  { color: #a78bfa; }
+        .fn  { color: #60a5fa; }
+        .str { color: #34d399; }
+        .cm  { color: #6b7280; font-style: italic; }
+        .num { color: #f9c74f; }
+        .const { color: #fb923c; }
+
+        .output-log {
+            background: #0b1120;
+            border-radius: 7px;
+            padding: 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            min-height: 140px;
+            max-height: 220px;
+            overflow-y: auto;
+            color: #d1d5db;
+        }
+        .log-line { margin-bottom: 5px; line-height: 1.5; }
+        .log-seek  { color: #a78bfa; }
+        .log-read  { color: #34d399; }
+        .log-write { color: #60a5fa; }
+        .log-err   { color: #f87171; }
+        .log-info  { color: #9ca3af; }
+
+        /* Examples */
+        .examples-section {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 22px;
+        }
+        .examples-section h3 {
+            color: #a78bfa;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 1rem;
+        }
+        .example-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .ex-card {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 14px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .ex-card:hover { border-color: #a78bfa; }
+        .ex-card .ex-title {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #f9c74f;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        .ex-card .ex-desc { font-size: 0.78rem; color: #9ca3af; line-height: 1.5; }
+        .ex-card .ex-call {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: #a78bfa;
+            margin-top: 8px;
+        }
+
+        .status-bar {
+            background: #0f3460;
+            border-radius: 7px;
+            padding: 10px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #9ca3af;
+            margin-top: 8px;
+            min-height: 38px;
+        }
+        .status-bar .ok { color: #34d399; }
+        .status-bar .err { color: #f87171; }
+    </style>
+</head>
+<body>
+
+<h1>lseek()</h1>
+<p class="subtitle">Linux System Call — File Offset Control</p>
+
+<!-- Theory -->
+<div class="theory-box">
+    <h2>What is lseek()?</h2>
+    <p>
+        Every open file has a <strong>file offset</strong> — a cursor that tracks where the next <code>read()</code>
+        or <code>write()</code> will happen. By default, each call advances this cursor automatically.
+        <code>lseek()</code> lets you <strong>move the cursor anywhere</strong> in the file without reading or writing.
+    </p>
+    <p>
+        <strong>Signature:</strong> <code>off_t lseek(int fd, off_t offset, int whence);</code>
+    </p>
+    <p>
+        It returns the new absolute position in the file on success, or <code>-1</code> on error.
+        The third argument <code>whence</code> controls how <code>offset</code> is interpreted:
+    </p>
+    <div class="whence-grid">
+        <div class="whence-card">
+            <div class="tag">SEEK_SET</div>
+            <div class="val">Value: 0</div>
+            <div class="desc">Move to <strong>offset</strong> bytes from the <strong>start</strong> of the file.</div>
+        </div>
+        <div class="whence-card">
+            <div class="tag">SEEK_CUR</div>
+            <div class="val">Value: 1</div>
+            <div class="desc">Move <strong>offset</strong> bytes from the <strong>current</strong> position.</div>
+        </div>
+        <div class="whence-card">
+            <div class="tag">SEEK_END</div>
+            <div class="val">Value: 2</div>
+            <div class="desc">Move <strong>offset</strong> bytes from the <strong>end</strong> of the file (usually negative).</div>
+        </div>
+    </div>
+</div>
+
+<div class="demo-wrapper">
+    <h2>Interactive Demo</h2>
+
+    <!-- File visualizer -->
+    <div class="file-section">
+        <h3>📄 text.txt — file contents (22 bytes)</h3>
+        <div class="pointer-row" id="pointer-row"></div>
+        <div class="file-bytes" id="file-bytes"></div>
+        <div class="offset-info">File offset (cursor): byte <span id="cursor-pos">0</span> &nbsp;|&nbsp; File size: <span>22</span> bytes</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-section">
+        <h3>Try lseek()</h3>
+        <div class="control-row">
+            <label>offset:</label>
+            <input type="number" id="offset-input" value="10" min="-30" max="30">
+            <span style="color:#6b7280; font-size:0.85rem;">(can be negative for SEEK_CUR / SEEK_END)</span>
+        </div>
+        <div class="control-row">
+            <label>whence:</label>
+            <div class="whence-btns">
+                <button class="whence-btn active" onclick="selectWhence('SEEK_SET', this)">SEEK_SET</button>
+                <button class="whence-btn" onclick="selectWhence('SEEK_CUR', this)">SEEK_CUR</button>
+                <button class="whence-btn" onclick="selectWhence('SEEK_END', this)">SEEK_END</button>
+            </div>
+        </div>
+        <div class="control-row">
+            <label>read n bytes:</label>
+            <input type="number" id="read-n" value="10" min="1" max="22">
+        </div>
+        <div class="action-btns">
+            <button class="btn btn-seek" onclick="doSeek()">▶ lseek(fd, offset, whence)</button>
+            <button class="btn btn-read" onclick="doRead()">▶ read(fd, buf, n)</button>
+            <button class="btn btn-reset" onclick="resetAll()">↺ Reset</button>
+        </div>
+        <div class="status-bar" id="status-bar">Ready. Select an operation above.</div>
+    </div>
+
+    <!-- Code + Output -->
+    <div class="two-col">
+        <div class="code-panel">
+            <h3>// generated C code</h3>
+            <pre id="code-display"><span class="kw">#include</span> <span class="str">&lt;unistd.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;fcntl.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;sys/types.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;sys/stat.h&gt;</span>
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+  <span class="kw">int</span> f;
+  <span class="kw">char</span> b[<span class="num">50</span>];
+
+  f = <span class="fn">open</span>(<span class="str">"text.txt"</span>, <span class="const">O_RDWR</span>);
+  <span class="cm">// Welcome toLab2 Class</span>
+
+  <span class="cm">// perform your lseek and read here</span>
+}</pre>
+        </div>
+        <div class="output-panel">
+            <h3>Terminal Output</h3>
+            <div class="output-log" id="output-log">
+                <div class="log-line log-info">$ ./program</div>
+                <div class="log-line log-info">// Waiting for operations...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lab Examples -->
+    <div class="examples-section">
+        <h3>Lab Examples (from class)</h3>
+        <div class="example-cards">
+
+            <div class="ex-card" onclick="loadExample('double_read')">
+                <div class="ex-title">Double read()</div>
+                <div class="ex-desc">Read 10 bytes twice — cursor moves automatically after first read.</div>
+                <div class="ex-call">read(f,b,10);<br>read(f,b,10);</div>
+            </div>
+
+            <div class="ex-card" onclick="loadExample('seek_cur')">
+                <div class="ex-title">SEEK_CUR</div>
+                <div class="ex-desc">Skip 10 bytes from current position, then read.</div>
+                <div class="ex-call">lseek(fd,10,SEEK_CUR);<br>read(f,b,10);</div>
+            </div>
+
+            <div class="ex-card" onclick="loadExample('seek_set')">
+                <div class="ex-title">SEEK_SET</div>
+                <div class="ex-desc">Jump to absolute byte 10 from start, then read.</div>
+                <div class="ex-call">lseek(f,10,SEEK_SET);<br>read(f,b,10);</div>
+            </div>
+
+            <div class="ex-card" onclick="loadExample('seek_end')">
+                <div class="ex-title">SEEK_END</div>
+                <div class="ex-desc">Go 11 bytes back from the end, then read.</div>
+                <div class="ex-call">lseek(f,-11,SEEK_END);<br>read(f,b,10);</div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // File content used in all lab examples: "Welcome toLab2 Class"
+    // Index:                                   0123456789...
+    const FILE_CONTENT = "Welcome toLab2 Class\n";
+    // 22 chars to match lab description "Welcome to Lab2 Class" (21) + newline
+    const FILE_STR = "Welcome toLab2 Class\n\0";
+    const FILE_BYTES = Array.from("Welcome toLab2 Class\n\0");
+
+    let cursor = 0;
+    let selectedWhence = 'SEEK_SET';
+    let lastReadStart = -1;
+    let lastReadLen = 0;
+    let ops = []; // list of operations for code generation
+
+    // ── Init ────────────────────────────────────────────────────────────
+    function initFileDisplay() {
+        const bytesDiv = document.getElementById('file-bytes');
+        const pointerDiv = document.getElementById('pointer-row');
+        bytesDiv.innerHTML = '';
+        pointerDiv.innerHTML = '';
+
+        FILE_BYTES.forEach((ch, i) => {
+            // pointer arrow row
+            const pc = document.createElement('div');
+            pc.className = 'pointer-cell';
+            pc.id = `ptr-${i}`;
+            pc.textContent = (i === cursor) ? '▼' : '';
+            if (i === cursor) pc.classList.add('active');
+            pointerDiv.appendChild(pc);
+
+            // byte cell
+            const bc = document.createElement('div');
+            bc.className = 'byte-cell';
+            bc.id = `byte-${i}`;
+
+            const display = ch === '\n' ? '\\n' : ch === '\0' ? '\\0' : ch;
+            bc.innerHTML = `<span class="char">${display}</span><span class="idx">${i}</span>`;
+            if (ch === ' ' || ch === '\n' || ch === '\0') bc.classList.add('space-cell');
+            if (i === cursor) bc.classList.add('cursor');
+            if (i >= lastReadStart && i < lastReadStart + lastReadLen && lastReadStart >= 0) {
+                bc.classList.add('read-highlight');
+            }
+            bytesDiv.appendChild(bc);
+        });
+
+        document.getElementById('cursor-pos').textContent = cursor;
+    }
+
+    // ── Whence selector ─────────────────────────────────────────────────
+    function selectWhence(w, btn) {
+        selectedWhence = w;
+        document.querySelectorAll('.whence-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    // ── lseek ───────────────────────────────────────────────────────────
+    function doSeek() {
+        const offset = parseInt(document.getElementById('offset-input').value);
+        let newPos;
+
+        if (selectedWhence === 'SEEK_SET') {
+            newPos = offset;
+        } else if (selectedWhence === 'SEEK_CUR') {
+            newPos = cursor + offset;
+        } else { // SEEK_END
+            newPos = FILE_BYTES.length + offset;
+        }
+
+        const statusBar = document.getElementById('status-bar');
+
+        if (newPos < 0 || newPos > FILE_BYTES.length) {
+            statusBar.innerHTML = `<span class="err">Error: lseek returned -1 — offset out of bounds (computed ${newPos})</span>`;
+            appendLog(`<span class="log-err">lseek(fd, ${offset}, ${selectedWhence}) = -1  [Error: out of bounds]</span>`);
+            return;
+        }
+
+        lastReadStart = -1;
+        lastReadLen = 0;
+        cursor = newPos;
+        initFileDisplay();
+
+        statusBar.innerHTML = `<span class="ok">lseek(fd, ${offset}, ${selectedWhence}) = ${cursor} &nbsp;✓</span>`;
+        appendLog(`<span class="log-seek">lseek(fd, ${offset}, ${selectedWhence}) → cursor moved to byte ${cursor}</span>`);
+
+        ops.push({ type: 'seek', offset, whence: selectedWhence });
+        updateCodeDisplay();
+    }
+
+    // ── read ────────────────────────────────────────────────────────────
+    function doRead() {
+        const n = parseInt(document.getElementById('read-n').value);
+        const statusBar = document.getElementById('status-bar');
+
+        if (cursor >= FILE_BYTES.length) {
+            statusBar.innerHTML = `<span class="err">read() returned 0 — already at end of file</span>`;
+            appendLog(`<span class="log-err">read(fd, buf, ${n}) = 0  [EOF]</span>`);
+            return;
+        }
+
+        const actualRead = Math.min(n, FILE_BYTES.length - cursor);
+        lastReadStart = cursor;
+        lastReadLen = actualRead;
+
+        const readStr = FILE_BYTES.slice(cursor, cursor + actualRead)
+            .map(c => c === '\n' ? '\\n' : c === '\0' ? '\\0' : c)
+            .join('');
+
+        cursor += actualRead;
+        initFileDisplay();
+
+        statusBar.innerHTML = `<span class="ok">read(fd, buf, ${n}) = ${actualRead}  →  buf = "${readStr}"</span>`;
+        appendLog(`<span class="log-read">read(fd, buf, ${n}) → read ${actualRead} bytes: "${readStr}"</span>`);
+        appendLog(`<span class="log-write">write(1, buf, ${actualRead}) → ${readStr}</span>`);
+
+        ops.push({ type: 'read', n });
+        updateCodeDisplay();
+    }
+
+    // ── Reset ───────────────────────────────────────────────────────────
+    function resetAll() {
+        cursor = 0;
+        lastReadStart = -1;
+        lastReadLen = 0;
+        ops = [];
+        initFileDisplay();
+        document.getElementById('status-bar').innerHTML = 'Ready. Select an operation above.';
+        document.getElementById('output-log').innerHTML =
+            '<div class="log-line log-info">$ ./program</div>' +
+            '<div class="log-line log-info">// Waiting for operations...</div>';
+        updateCodeDisplay();
+    }
+
+    // ── Load lab example ─────────────────────────────────────────────────
+    function loadExample(name) {
+        resetAll();
+        const examples = {
+            double_read: () => {
+                // Two consecutive reads of 10 bytes
+                doRead();
+                doRead();
+            },
+            seek_cur: () => {
+                document.getElementById('offset-input').value = 10;
+                selectWhence('SEEK_CUR', document.querySelectorAll('.whence-btn')[1]);
+                document.getElementById('read-n').value = 10;
+                doSeek();
+                doRead();
+            },
+            seek_set: () => {
+                document.getElementById('offset-input').value = 10;
+                selectWhence('SEEK_SET', document.querySelectorAll('.whence-btn')[0]);
+                document.getElementById('read-n').value = 10;
+                doSeek();
+                doRead();
+            },
+            seek_end: () => {
+                document.getElementById('offset-input').value = -11;
+                selectWhence('SEEK_END', document.querySelectorAll('.whence-btn')[2]);
+                document.getElementById('read-n').value = 10;
+                doSeek();
+                doRead();
+            }
+        };
+        if (examples[name]) examples[name]();
+    }
+
+    // ── Code display ──────────────────────────────────────────────────────
+    function updateCodeDisplay() {
+        let opsCode = '';
+        ops.forEach(op => {
+            if (op.type === 'seek') {
+                opsCode += `  <span class="fn">lseek</span>(f, <span class="num">${op.offset}</span>, <span class="const">${op.whence}</span>);\n`;
+            } else {
+                opsCode += `  <span class="fn">read</span>(f, b, <span class="num">${op.n}</span>);\n`;
+                opsCode += `  <span class="fn">write</span>(<span class="num">1</span>, b, <span class="num">${op.n}</span>);\n`;
+            }
+        });
+
+        document.getElementById('code-display').innerHTML =
+`<span class="kw">#include</span> <span class="str">&lt;unistd.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;fcntl.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;sys/types.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;sys/stat.h&gt;</span>
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+  <span class="kw">int</span> f;
+  <span class="kw">char</span> b[<span class="num">50</span>];
+
+  f = <span class="fn">open</span>(<span class="str">"text.txt"</span>, <span class="const">O_RDWR</span>);
+  <span class="cm">// Welcome toLab2 Class</span>
+${opsCode || '  <span class="cm">// add operations above ↑</span>\n'}
+  <span class="kw">return</span> <span class="num">0</span>;
+}`;
+    }
+
+    // ── Log helper ────────────────────────────────────────────────────────
+    function appendLog(html) {
+        const log = document.getElementById('output-log');
+        const div = document.createElement('div');
+        div.className = 'log-line';
+        div.innerHTML = html;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────
+    initFileDisplay();
+    updateCodeDisplay();
+</script>
+</body>
+</html>
