@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Task 20 - OS as a Bridge</title>
+<link rel="stylesheet" href="bridge.css">
+</head>
+
+<body>
+
+<header>
+Operating System as a Bridge Between Hardware and Software
+</header>
+
+<h2>Concept Explanation</h2>
+
+<p class="description">
+The Operating System (OS) acts as a bridge between the user applications (software) and the computer hardware.
+Applications cannot directly access hardware like CPU, memory, or disk.
+Instead, they request services from the OS through system calls.
+The OS manages resources and ensures safe and efficient communication.
+</p>
+
+<div class="container">
+    <div class="box">Application (Software)</div>
+    <div class="arrow">➡</div>
+    <div class="box">Operating System</div>
+    <div class="arrow">➡</div>
+    <div class="box">Hardware (CPU, RAM, Disk)</div>
+</div>
+
+<button onclick="simulate()">Simulate Program Request</button>
+
+<div id="output"></div>
+
+<script src="bridge.js"></script>
+
+</body>
+</html>
